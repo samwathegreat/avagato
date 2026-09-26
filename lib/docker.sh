@@ -246,11 +246,24 @@ docker_install(){
   require_commands docker openssl sed awk grep install curl df uname
   docker_preflight || return 0
   [[ "$AVAGATO_DOCKER_STACK" == 0 ]] || { docker_menu; return; }
-  say "${bold}Avagato Docker installation${reset}"
-  say "Apache Guacamole ${GUAC_VERSION} + guacd ${GUAC_VERSION} + PostgreSQL ${POSTGRES_MAJOR}"
+  avagato_banner
   say
-  say "TOTP is intentionally not enabled during initial bootstrap."
-  say "After installation, create and verify your real administrator account first; Avagato can enable TOTP afterward."
+  say "${bold}Welcome to Avagato!${reset}"
+  say
+  say "No existing Apache Guacamole installation was detected."
+  say
+  say "Avagato can create a new Docker-based installation containing:"
+  say "  - Apache Guacamole ${GUAC_VERSION}"
+  say "  - guacd ${GUAC_VERSION}"
+  say "  - PostgreSQL ${POSTGRES_MAJOR}"
+  say "  - Avagato Theme"
+  say
+  say "The installation will be managed under ${AVAGATO_DIR}."
+  say "TOTP authentication can be enabled after the initial administrator account setup is complete."
+  say
+  confirm "Install a new Avagato Docker deployment?" || return 0
+  say
+  say "${bold}Docker installation setup${reset}"
   say
   prompt_http_port 8080
   prompt_rdp_drive
@@ -308,7 +321,7 @@ docker_menu(){
   [[ -f "$COMPOSE_FILE" && -f "$ENV_FILE" ]] || die "Avagato Docker metadata is incomplete under $AVAGATO_DIR."
   while true; do
     clear || true
-    say "${bold}AVAGATO ${AVAGATO_VERSION}${reset}"
+    avagato_banner
     say "Docker deployment • Apache Guacamole ${GUAC_VERSION}"
     say
     docker_status
