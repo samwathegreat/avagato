@@ -249,7 +249,7 @@ install_docker_theme(){
   build_theme "$tmp"
   install -o root -g root -m 644 "$tmp" "$DOCKER_THEME_JAR"
   trap - RETURN; rm -f "$tmp"
-  docker_compose up -d guacamole
+  docker_compose up -d --force-recreate guacamole
   say "${green}SUCCESS:${reset} Avagato Theme installed/updated."
 }
 
@@ -259,7 +259,7 @@ remove_docker_theme(){
   theme_jar_is_ours "$DOCKER_THEME_JAR" || die "The theme JAR does not appear to be Avagato-managed. Refusing to remove it."
   confirm "Remove the Avagato Theme from this Docker deployment?" || return 0
   rm -f "$DOCKER_THEME_JAR"
-  docker_compose up -d guacamole
+  docker_compose up -d --force-recreate guacamole
   say "${green}SUCCESS:${reset} Avagato Theme removed."
 }
 
