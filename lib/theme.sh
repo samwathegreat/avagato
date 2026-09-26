@@ -34,21 +34,7 @@ theme_jar_variant(){
   actual="$(sha256sum "$jar_path" | awk '{print $1}')"
   [[ "$actual" == "$AVAGATO_DARK_THEME_SHA256" ]] && { printf '%s\n' dark; return 0; }
   [[ "$actual" == "$AVAGATO_LIGHT_THEME_SHA256" ]] && { printf '%s\n' light; return 0; }
-
-  # Development installs created before prebuilt artifacts were introduced may
-  # contain the same Avagato theme with different ZIP timestamps. Recognize
-  # those only when unzip is already available so they can be replaced safely.
-  command -v unzip >/dev/null 2>&1 || return 1
-  local manifest
-  manifest="$(theme_manifest "$jar_path")"
-  [[ "$manifest" == *'"guacamoleVersion":"1.6.0"'* ]] || return 1
-  if [[ "$manifest" == *'"name":"Avagato Theme"'* && "$manifest" == *'"namespace":"avagato-dark-theme"'* ]]; then
-    printf '%s\n' dark
-  elif [[ "$manifest" == *'"name":"Avagato Light Theme"'* && "$manifest" == *'"namespace":"avagato-light-theme"'* ]]; then
-    printf '%s\n' light
-  else
-    return 1
-  fi
+  return 1
 }
 
 theme_jar_version(){
