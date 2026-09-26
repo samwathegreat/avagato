@@ -9,11 +9,11 @@
 >
 > Same Guacamole. More cat.
 
-**Avagato** is an installer and management helper for **Apache Guacamole 1.6.0**. It can deploy a complete Docker-based Guacamole stack on a suitable Linux Docker host, or enhance an existing Guacamole installation created by the **Proxmox VE Community Scripts** Guacamole installer.
+**Avagato is a deployment and management tool for Apache Guacamole.** It can build and manage a complete Docker-based Guacamole stack on a Linux Docker host, including PostgreSQL and guacd, with optional TOTP authentication, Light and Dark Avagato themes, and RDP drive sharing. It also supports enhancing and managing existing Guacamole 1.6.0 installations created with Proxmox VE Community Scripts.
 
-Avagato adds the things I wanted around Guacamole without trying to replace Guacamole itself: verified Light and Dark themes, optional TOTP authentication, Docker deployment and management, optional RDP drive sharing, and — for supported native Community Scripts installations — a cleaner Tomcat setup.
+For new installations, Docker is the recommended path. Proxmox VE users can create a Community Scripts Docker LXC and let Avagato handle Guacamole from there. Avagato isn't limited to Proxmox, though — it can deploy its Docker stack on a suitable Linux Docker environment.
 
-Avagato isn't a replacement for the Community Scripts installer. It's a small companion for people who like that installer but prefer their guacamole with a little extra seasoning. And apparently a cat.
+Avagato isn't a replacement for the Community Scripts installer. It's a companion for people who like that installer but prefer their guacamole with a little extra seasoning. And apparently a cat.
 
 ## At a glance
 
