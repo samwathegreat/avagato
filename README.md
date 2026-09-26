@@ -225,14 +225,14 @@ Avagato can then handle the Docker-side mapping into `guacd`.
 
 This section matters **only if you choose to bind-mount storage from outside the Docker LXC**.
 
-Avagato does **not** manage ownership or permissions on storage supplied by the Proxmox host. In the Avagato Docker deployment, `guacd` runs as:
+Avagato does **not** manage ownership or permissions on storage supplied by the Proxmox host. In Avagato's pinned Guacamole 1.6.0 Docker stack, `guacd` runs as:
 
 ```text
-UID 1001
-GID 1001
+UID 1000
+GID 1000
 ```
 
-If `/opt/avagato/data/drive` is backed by a Proxmox host bind mount, you are responsible for making sure the resulting storage is writable by `1001:1001` as seen from inside the Docker LXC. Depending on your Proxmox/LXC configuration, UID/GID mapping may also need to be considered.
+If `/opt/avagato/data/drive` is backed by a Proxmox host bind mount, you are responsible for making sure the resulting storage is writable by `1000:1000` as seen from inside the Docker LXC. Depending on your Proxmox/LXC configuration, UID/GID mapping may also need to be considered. Avagato does not automatically change ownership or permissions of an existing directory or external mount.
 
 > [!NOTE]
 > **If you are not using an external Proxmox bind mount, you do not need to perform this permissions setup.** This is only an advanced consideration when supplying storage from outside the Docker LXC.
