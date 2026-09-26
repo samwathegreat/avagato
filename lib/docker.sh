@@ -2,7 +2,7 @@
 # Avagato Docker deployment and management for Apache Guacamole 1.6.0.
 
 AVAGATO_DIR="/opt/avagato"
-COMPOSE_FILE="$AVAGATO_DIR/compose.yaml"
+COMPOSE_FILE="$AVAGATO_DIR/docker-compose.yaml"
 ENV_FILE="$AVAGATO_DIR/.env"
 GUAC_VERSION="1.6.0"
 POSTGRES_MAJOR="17"
