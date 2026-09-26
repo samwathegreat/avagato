@@ -244,17 +244,7 @@ restore_all(){
 menu(){
   while true; do
     clear || true
-    say "${green}${bold}                 .-''''-.${reset}"
-    say "${green}${bold}               .'  .--.  '.${reset}"
-    say "${green}${bold}              /   (o  o)   \\${reset}"
-    say "${green}${bold}             |      /\\      |${reset}"
-    say "${green}${bold}              \\    '  '    /${reset}"
-    say "${green}${bold}               '.  ----  .'${reset}"
-    say "${green}${bold}                 '-.__.-'${reset}"
-    say
-    say "${bold}                    AVAGATO${reset}"
-    say "             A little extra seasoning"
-    say "                for Apache Guacamole"
+    avagato_banner
     say
     say "Avagato ${AVAGATO_VERSION}  •  Apache Guacamole ${INSTALLED_GUAC_VERSION}"
     say "Native installation  •  Proxmox VE Community Scripts layout"
