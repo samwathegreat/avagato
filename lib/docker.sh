@@ -407,8 +407,37 @@ configure_rdp_drive(){
   say "guacd path: /drive"
 }
 
+docker_jar_looks_visual(){
+  local jar_path="$1" ext_dir jar_name
+  ext_dir="$(dirname "$jar_path")"
+  jar_name="$(basename "$jar_path")"
+  docker run --rm --entrypoint jar -v "$ext_dir:/extensions:ro" "guacamole/guacamole:${GUAC_VERSION}" tf "/extensions/$jar_name" 2>/dev/null |
+    grep -Eq '(^|/)[^/]+\.css$'
+}
+
+warn_other_visual_extensions_docker(){
+  local ext_dir="$1" jar found=0
+  [[ -d "$ext_dir" ]] || return 0
+  for jar in "$ext_dir"/*.jar; do
+    [[ -f "$jar" ]] || continue
+    theme_jar_is_ours "$jar" && continue
+    if docker_jar_looks_visual "$jar"; then
+      if [[ "$found" == 0 ]]; then
+        say "${yellow}WARNING:${reset} Other extension JARs that appear to affect Guacamole's visual styling were found:"
+      fi
+      printf '  - %s\n' "$(basename "$jar")"
+      found=1
+    fi
+  done
+  if [[ "$found" == 1 ]]; then
+    say "Avagato will not modify or remove these files, but multiple visual extensions can conflict."
+    confirm "Continue installing Avagato alongside them?" || return 1
+  fi
+  return 0
+}
+
 install_docker_theme(){
-  require_commands curl jar mktemp install unzip
+  require_commands curl mktemp install sha256sum
   load_module lib/theme.sh
   say "${bold}Install / switch / update Avagato Theme${reset}"
   say "  1. Dark"
@@ -422,13 +451,13 @@ install_docker_theme(){
   esac
   say "Available version: $(theme_variant_version "$variant")"
   confirm "Install / switch to Avagato $label?" || return 0
-  warn_other_visual_extensions "$AVAGATO_DIR/guacamole-home/extensions" || { say "Theme installation cancelled."; return 0; }
+  warn_other_visual_extensions_docker "$AVAGATO_DIR/guacamole-home/extensions" || { say "Theme installation cancelled."; return 0; }
   [[ ! -f "$target" ]] || theme_jar_is_ours "$target" || die "$(basename "$target") is not an Avagato-managed theme. Refusing to overwrite it."
   [[ ! -f "$other" ]] || theme_jar_is_ours "$other" || die "$(basename "$other") is not an Avagato-managed theme. Refusing to remove it."
   local tmp
   tmp="$(mktemp)"; rm -f "$tmp"; tmp="${tmp}.jar"
   trap 'rm -f "${tmp:-}"' RETURN
-  build_theme_variant "$variant" "$tmp"
+  download_theme_variant "$variant" "$tmp" || die "Avagato $label theme download or verification failed."
   install -o root -g root -m 644 "$tmp" "$target"
   rm -f "$other"
   trap - RETURN; rm -f "$tmp"
@@ -450,7 +479,7 @@ remove_docker_theme(){
   say "${green}SUCCESS:${reset} Avagato Theme removed."
 }
 docker_install(){
-  require_commands docker openssl sed awk grep install curl df uname
+  require_commands docker openssl sed awk grep install curl df uname sha256sum
   docker_preflight || return 0
   [[ "$AVAGATO_DOCKER_STACK" == 0 ]] || { docker_menu; return; }
   avagato_banner
@@ -514,7 +543,7 @@ docker_install(){
     load_module lib/theme.sh
     local theme_tmp
     theme_tmp="$(mktemp)"; rm -f "$theme_tmp"; theme_tmp="${theme_tmp}.jar"
-    build_theme_variant "$AVAGATO_THEME_VARIANT" "$theme_tmp"
+    download_theme_variant "$AVAGATO_THEME_VARIANT" "$theme_tmp" || die "Avagato theme download or verification failed."
     local initial_theme_jar="$DOCKER_DARK_THEME_JAR"
     [[ "$AVAGATO_THEME_VARIANT" == light ]] && initial_theme_jar="$DOCKER_LIGHT_THEME_JAR"
     install -o root -g root -m 644 "$theme_tmp" "$initial_theme_jar"
