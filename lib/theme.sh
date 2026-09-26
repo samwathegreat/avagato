@@ -8,9 +8,7 @@ theme_manifest(){
 }
 
 theme_jar_version(){
-  local manifest
-  manifest="$(theme_manifest "$1")"
-  sed -n 's/.*"avagatoThemeVersion":"\([^"]*\)".*/\1/p' <<<"$manifest"
+  unzip -p "$1" META-INF/avagato-theme-version 2>/dev/null | tr -d '\r\n' || true
 }
 
 theme_jar_is_ours(){
@@ -38,7 +36,6 @@ build_theme()(
   "guacamoleVersion":"1.6.0",
   "name":"Avagato Theme",
   "namespace":"avagato-dark-theme",
-  "avagatoThemeVersion":"1.0.0",
   "css":["dark.css"],
   "js":["branding.js"],
   "resources":{
@@ -49,6 +46,7 @@ build_theme()(
   "translations":["translations/en.json"]
 }
 JSON
+  printf '%s\n' "$AVAGATO_THEME_VERSION" > "$work/META-INF/avagato-theme-version"
   cat > "$work/translations/en.json" <<'JSON'
 {"APP":{"NAME":"Avagato"}}
 JSON
