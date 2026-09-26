@@ -115,7 +115,7 @@ build_light_theme()(
   asset_base="${AVAGATO_ASSET_BASE:-https://raw.githubusercontent.com/samwathegreat/avagato/main/theme/assets}"
   install -d "$work/META-INF" "$work/resources/images" "$work/translations"
 
-  curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-login.png" -o "$work/resources/images/avagato-login.png"
+  curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-login-light.png" -o "$work/resources/images/avagato-login.png"
   curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-large.png" -o "$work/resources/images/avagato-large.png"
   curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-small.png" -o "$work/resources/images/avagato-small.png"
 
@@ -174,12 +174,7 @@ JSON
 }());
 JS
   cat > "$work/dark.css" <<'CSS'
-/* Avagato Light Theme - stock Guacamole colors with Avagato branding. */
-.login-ui .login-dialog{
-    width:24em!important;
-    max-width:90%!important;
-    padding:1.5em!important
-}
+/* Avagato Light Theme - stock Guacamole colors with Avagato branding only. */
 .login-ui .login-dialog .logo{
     width:18em!important;
     height:15em!important;
@@ -190,18 +185,6 @@ JS
     background-repeat:no-repeat!important;
     background-size:contain!important
 }
-.login-ui .login-dialog .app-name{display:none!important}
-.login-ui .login-fields .labeled-field .field-header{
-    color:#666!important;
-    opacity:1!important
-}
-.login-ui .login-fields .labeled-field.empty input{
-    background:transparent!important
-}
-.login-ui .login-fields .labeled-field input:focus{
-    background:#fff!important
-}
-CSS
-  (cd "$work" && jar cf "$out" guac-manifest.json avagato-theme-version dark.css branding.js translations resources)
+.login-ui .login-dialog .app-name{display:none!important}  (cd "$work" && jar cf "$out" guac-manifest.json avagato-theme-version dark.css branding.js translations resources)
 )
 
