@@ -28,7 +28,7 @@ build_theme()(
   asset_base="${AVAGATO_ASSET_BASE:-https://raw.githubusercontent.com/samwathegreat/avagato/main/theme/assets}"
   install -d "$work/META-INF" "$work/resources/images" "$work/translations"
 
-  curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-login.png" -o "$work/resources/images/avagato-login.png"
+  curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-login-light.png" -o "$work/resources/images/avagato-login.png"
   curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-large.png" -o "$work/resources/images/avagato-large.png"
   curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-small.png" -o "$work/resources/images/avagato-small.png"
 
