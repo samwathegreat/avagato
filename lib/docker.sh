@@ -6,7 +6,8 @@ COMPOSE_FILE="$AVAGATO_DIR/compose.yaml"
 ENV_FILE="$AVAGATO_DIR/.env"
 GUAC_VERSION="1.6.0"
 POSTGRES_MAJOR="17"
-DOCKER_THEME_JAR="$AVAGATO_DIR/guacamole-home/extensions/guacamole-avagato-dark-theme.jar"
+DOCKER_DARK_THEME_JAR="$AVAGATO_DIR/guacamole-home/extensions/guacamole-avagato-dark-theme.jar"
+DOCKER_LIGHT_THEME_JAR="$AVAGATO_DIR/guacamole-home/extensions/guacamole-avagato-light-theme.jar"
 
 docker_compose(){ docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"; }
 
@@ -142,34 +143,34 @@ generate_schema(){
 }
 
 docker_status(){
-  local port="unknown" theme_status="Not installed"
+  local port="unknown" theme_status="Not installed" theme_jar="" variant="" installed="" available=""
   [[ -f "$ENV_FILE" ]] && port="$(sed -n 's/^GUACAMOLE_HTTP_PORT=//p' "$ENV_FILE" | head -n1)"
-  if [[ -f "$DOCKER_THEME_JAR" ]]; then
-    load_module lib/theme.sh
-    if command -v unzip >/dev/null 2>&1 && theme_jar_is_ours "$DOCKER_THEME_JAR"; then
-      local installed_theme_version
-      installed_theme_version="$(theme_jar_version "$DOCKER_THEME_JAR")"
-      if [[ -z "$installed_theme_version" ]]; then
-        theme_status="Installed (unversioned; available: $AVAGATO_THEME_VERSION)"
-      elif [[ "$installed_theme_version" == "$AVAGATO_THEME_VERSION" ]]; then
-        theme_status="Installed ($installed_theme_version; current)"
-      else
-        theme_status="Installed ($installed_theme_version; available: $AVAGATO_THEME_VERSION)"
-      fi
+  load_module lib/theme.sh
+  if [[ -f "$DOCKER_DARK_THEME_JAR" && -f "$DOCKER_LIGHT_THEME_JAR" ]]; then
+    theme_status="Conflict: Dark and Light are both installed"
+  elif [[ -f "$DOCKER_DARK_THEME_JAR" ]]; then theme_jar="$DOCKER_DARK_THEME_JAR"
+  elif [[ -f "$DOCKER_LIGHT_THEME_JAR" ]]; then theme_jar="$DOCKER_LIGHT_THEME_JAR"
+  fi
+  if [[ -n "$theme_jar" ]]; then
+    variant="$(theme_jar_variant "$theme_jar" 2>/dev/null || true)"
+    if [[ -z "$variant" ]]; then theme_status="Unknown JAR present"
     else
-      theme_status="Unknown JAR present"
+      installed="$(theme_jar_version "$theme_jar")"; available="$(theme_variant_version "$variant")"
+      if [[ -z "$installed" ]]; then theme_status="${variant^} (unversioned; available: $available)"
+      elif [[ "$installed" == "$available" ]]; then theme_status="${variant^} ($installed; current)"
+      else theme_status="${variant^} ($installed; available: $available)"
+      fi
     fi
   fi
   say "${bold}Current status${reset}"
   printf '  %-25s %s\n' 'Deployment' 'Avagato Docker'
   printf '  %-25s %s\n' 'Guacamole version' "$GUAC_VERSION"
   printf '  %-25s %s\n' 'HTTP port' "$port"
-  printf '  %-25s %s\n' 'TOTP' "$(grep -Eq '^[[:space:]]+TOTP_ENABLED:[[:space:]]*"?true"?' "$COMPOSE_FILE" 2>/dev/null && echo Enabled || echo Disabled)"
+  printf '  %-25s %s\n' 'TOTP' "$(grep -Eq '^[[:space:]]+TOTP_ENABLED:[[:space:]]*\"?true\"?' "$COMPOSE_FILE" 2>/dev/null && echo Enabled || echo Disabled)"
   printf '  %-25s %s\n' 'Avagato Theme' "$theme_status"
   say
   docker_compose ps 2>/dev/null || true
 }
-
 change_http_port(){
   local old
   old="$(sed -n 's/^GUACAMOLE_HTTP_PORT=//p' "$ENV_FILE" | head -n1)"
@@ -248,38 +249,44 @@ disable_totp(){
 install_docker_theme(){
   require_commands curl jar mktemp install unzip
   load_module lib/theme.sh
-  say "${bold}Install / update Avagato Theme${reset}"
-  local installed_version=""
-  [[ -f "$DOCKER_THEME_JAR" ]] && installed_version="$(theme_jar_version "$DOCKER_THEME_JAR")"
-  if [[ -n "$installed_version" ]]; then
-    say "Installed version: $installed_version"
-  elif [[ -f "$DOCKER_THEME_JAR" ]]; then
-    say "Installed version: unversioned"
-  else
-    say "Installed version: not installed"
-  fi
-  say "Available version: $AVAGATO_THEME_VERSION"
-  confirm "Install the available Avagato theme?" || return 0
+  say "${bold}Install / switch / update Avagato Theme${reset}"
+  say "  1. Dark"
+  say "  2. Light"
+  local choice variant target other label
+  read -r -p "Theme [1-2]: " choice
+  case "$choice" in
+    1) variant=dark; target="$DOCKER_DARK_THEME_JAR"; other="$DOCKER_LIGHT_THEME_JAR"; label=Dark ;;
+    2) variant=light; target="$DOCKER_LIGHT_THEME_JAR"; other="$DOCKER_DARK_THEME_JAR"; label=Light ;;
+    *) say "Invalid selection."; return 0 ;;
+  esac
+  say "Available version: $(theme_variant_version "$variant")"
+  confirm "Install / switch to Avagato $label?" || return 0
+  [[ ! -f "$target" ]] || theme_jar_is_ours "$target" || die "$(basename "$target") is not an Avagato-managed theme. Refusing to overwrite it."
+  [[ ! -f "$other" ]] || theme_jar_is_ours "$other" || die "$(basename "$other") is not an Avagato-managed theme. Refusing to remove it."
   local tmp
   tmp="$(mktemp)"; rm -f "$tmp"; tmp="${tmp}.jar"
   trap 'rm -f "${tmp:-}"' RETURN
-  build_theme "$tmp"
-  install -o root -g root -m 644 "$tmp" "$DOCKER_THEME_JAR"
+  build_theme_variant "$variant" "$tmp"
+  install -o root -g root -m 644 "$tmp" "$target"
+  rm -f "$other"
   trap - RETURN; rm -f "$tmp"
   docker_compose up -d --force-recreate guacamole
-  say "${green}SUCCESS:${reset} Avagato Theme installed/updated."
+  say "${green}SUCCESS:${reset} Avagato $label installed."
 }
-
 remove_docker_theme(){
-  [[ -f "$DOCKER_THEME_JAR" ]] || { say "Avagato Theme is not installed."; return 0; }
   load_module lib/theme.sh
-  theme_jar_is_ours "$DOCKER_THEME_JAR" || die "The theme JAR does not appear to be Avagato-managed. Refusing to remove it."
+  local found=0 jar
+  for jar in "$DOCKER_DARK_THEME_JAR" "$DOCKER_LIGHT_THEME_JAR"; do
+    [[ -f "$jar" ]] || continue
+    found=1
+    theme_jar_is_ours "$jar" || die "$(basename "$jar") does not appear to be an Avagato-managed theme. Refusing to remove it."
+  done
+  [[ "$found" == 1 ]] || { say "Avagato Theme is not installed."; return 0; }
   confirm "Remove the Avagato Theme from this Docker deployment?" || return 0
-  rm -f "$DOCKER_THEME_JAR"
+  rm -f "$DOCKER_DARK_THEME_JAR" "$DOCKER_LIGHT_THEME_JAR"
   docker_compose up -d --force-recreate guacamole
   say "${green}SUCCESS:${reset} Avagato Theme removed."
 }
-
 docker_install(){
   require_commands docker openssl sed awk grep install curl df uname
   docker_preflight || return 0
@@ -307,8 +314,20 @@ docker_install(){
 
   AVAGATO_THEME_ENABLED=1
   say
-  say "Avagato Theme applies Avagato's dark theme and branding to Guacamole."
-  if ! confirm "Enable Avagato Theme?"; then
+  say "Avagato Theme applies Avagato branding to Guacamole."
+  AVAGATO_THEME_VARIANT=dark
+  if confirm "Enable Avagato Theme?"; then
+    say "  1. Dark"
+    say "  2. Light"
+    while true; do
+      read -r -p "Theme [1-2]: " theme_choice
+      case "$theme_choice" in
+        1) AVAGATO_THEME_VARIANT=dark; break ;;
+        2) AVAGATO_THEME_VARIANT=light; break ;;
+        *) say "Enter 1 for Dark or 2 for Light." ;;
+      esac
+    done
+  else
     AVAGATO_THEME_ENABLED=0
   fi
 
@@ -316,7 +335,7 @@ docker_install(){
   say
   say "Installation summary:"
   say "  HTTP port:        $GUACAMOLE_HTTP_PORT"
-  say "  Avagato Theme:    $([[ "$AVAGATO_THEME_ENABLED" == 1 ]] && echo Enabled || echo Disabled)"
+  say "  Avagato Theme:    $([[ "$AVAGATO_THEME_ENABLED" == 1 ]] && echo "${AVAGATO_THEME_VARIANT^}" || echo Disabled)"
   say "  TOTP:             Disabled for initial bootstrap"
   say "  RDP drive share:  $([[ "$AVAGATO_RDP_DRIVE" == 1 ]] && echo Enabled || echo Disabled)"
   say
@@ -333,8 +352,10 @@ docker_install(){
     load_module lib/theme.sh
     local theme_tmp
     theme_tmp="$(mktemp)"; rm -f "$theme_tmp"; theme_tmp="${theme_tmp}.jar"
-    build_theme "$theme_tmp"
-    install -o root -g root -m 644 "$theme_tmp" "$DOCKER_THEME_JAR"
+    build_theme_variant "$AVAGATO_THEME_VARIANT" "$theme_tmp"
+    local initial_theme_jar="$DOCKER_DARK_THEME_JAR"
+    [[ "$AVAGATO_THEME_VARIANT" == light ]] && initial_theme_jar="$DOCKER_LIGHT_THEME_JAR"
+    install -o root -g root -m 644 "$theme_tmp" "$initial_theme_jar"
     rm -f "$theme_tmp"
   fi
   docker_compose config >/dev/null || die "Generated Compose configuration failed validation."
@@ -353,7 +374,7 @@ docker_install(){
   done
 
   say
-  say "${green}SUCCESS:${reset} Avagato Docker deployment created with the Avagato Theme."
+  say "${green}SUCCESS:${reset} Avagato Docker deployment created."
   say "Open: http://<this-host>:$GUACAMOLE_HTTP_PORT/"
   say
   say "${bold}Required account bootstrap${reset}"
@@ -384,7 +405,7 @@ docker_menu(){
     say "${bold}Manage${reset}"
     say "  1. Enable TOTP authentication"
     say "  2. Disable TOTP authentication"
-    say "  3. Install / update Avagato Theme"
+    say "  3. Install / switch / update Avagato Theme"
     say "  4. Remove Avagato Theme"
     say "  5. Change HTTP port"
     say "  6. Start / reconcile deployment"
