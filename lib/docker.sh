@@ -264,12 +264,40 @@ configure_rdp_drive(){
     confirm "Disable RDP drive sharing?" || return 0
     compose_backup="$(mktemp)"
     cp "$COMPOSE_FILE" "$compose_backup"
-    # Remove the complete Avagato-managed guacd drive stanza. Keeping this
-    # as a fixed two-line block avoids leaving an empty YAML volumes key.
-    sed -i '/^    volumes:$/{
-      N
-      /      - \.\/data\/drive:\/drive$/d
-    }' "$COMPOSE_FILE"
+    # Remove only Avagato's own guacd drive mapping. Preserve any other
+    # user-added guacd volume entries. If the volumes list becomes empty,
+    # remove only that now-empty key so the Compose file remains valid.
+    awk '
+      BEGIN { in_guacd=0; in_volumes=0; kept_volume=0 }
+      /^  guacd:$/ { in_guacd=1 }
+      in_guacd && /^  [^ ]/ && !/^  guacd:$/ { in_guacd=0; in_volumes=0 }
+      in_guacd && /^    volumes:$/ {
+        in_volumes=1
+        volumes_line=$0
+        kept_volume=0
+        next
+      }
+      in_guacd && in_volumes {
+        if (/^      - \.\/data\/drive:\/drive$/) next
+        if (/^      - /) {
+          if (!kept_volume) print volumes_line
+          kept_volume=1
+          print
+          next
+        }
+        if (!kept_volume && !/^[[:space:]]*$/) {
+          # No remaining list entries: intentionally omit the volumes key.
+        }
+        in_volumes=0
+      }
+      { print }
+      END {
+        if (in_guacd && in_volumes && kept_volume == 0) {
+          # Empty trailing volumes key is intentionally omitted.
+        }
+      }
+    ' "$COMPOSE_FILE" > "$COMPOSE_FILE.tmp"
+    mv "$COMPOSE_FILE.tmp" "$COMPOSE_FILE"
     if ! docker_compose config >/dev/null || ! docker_compose up -d --force-recreate guacd; then
       cp "$compose_backup" "$COMPOSE_FILE"
       rm -f "$compose_backup"
