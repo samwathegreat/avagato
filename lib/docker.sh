@@ -410,7 +410,7 @@ install_docker_theme(){
   say "  1. Dark"
   say "  2. Light"
   local choice variant target other label
-  read -r -p "Theme [1-2]: " choice
+  read -e -r -p "Theme [1-2]: " choice
   case "$choice" in
     1) variant=dark; target="$DOCKER_DARK_THEME_JAR"; other="$DOCKER_LIGHT_THEME_JAR"; label=Dark ;;
     2) variant=light; target="$DOCKER_LIGHT_THEME_JAR"; other="$DOCKER_DARK_THEME_JAR"; label=Light ;;
@@ -478,7 +478,7 @@ docker_install(){
     say "  1. Dark"
     say "  2. Light"
     while true; do
-      read -r -p "Theme [1-2]: " theme_choice
+      read -e -r -p "Theme [1-2]: " theme_choice
       case "$theme_choice" in
         1) AVAGATO_THEME_VARIANT=dark; break ;;
         2) AVAGATO_THEME_VARIANT=light; break ;;
@@ -571,7 +571,11 @@ docker_menu(){
     say
     say "  Q. Quit"
     say
-    read -r -p "Selection: " choice
+    if ! read -e -r -p "Selection: " choice; then
+      say
+      say "${yellow}Input closed. Exiting Avagato.${reset}"
+      return 0
+    fi
     case "$choice" in
       1) enable_totp; pause;;
       2) disable_totp; pause;;
