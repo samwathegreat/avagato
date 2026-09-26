@@ -264,14 +264,11 @@ configure_rdp_drive(){
     confirm "Disable RDP drive sharing?" || return 0
     compose_backup="$(mktemp)"
     cp "$COMPOSE_FILE" "$compose_backup"
-    sed -i '\\|^[[:space:]]*- ./data/drive:/drive$|d' "$COMPOSE_FILE"
-    # The drive mapping is the only guacd volume Avagato creates. Remove its
-    # now-empty volumes key so Compose does not see a null volumes value.
+    # Remove the complete Avagato-managed guacd drive stanza. Keeping this
+    # as a fixed two-line block avoids leaving an empty YAML volumes key.
     sed -i '/^    volumes:$/{
       N
-      /\\n[[:space:]]*$/{
-        s/^    volumes:\\n//
-      }
+      /      - \.\/data\/drive:\/drive$/d
     }' "$COMPOSE_FILE"
     if ! docker_compose config >/dev/null || ! docker_compose up -d --force-recreate guacd; then
       cp "$compose_backup" "$COMPOSE_FILE"
