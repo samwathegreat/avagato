@@ -3,7 +3,14 @@ set -Eeuo pipefail
 
 AVAGATO_VERSION="1.3.0"
 AVAGATO_REPO="${AVAGATO_REPO:-https://raw.githubusercontent.com/samwathegreat/avagato/main}"
-SELF_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# BASH_SOURCE is unset when the documented launcher is executed via stdin
+# (for example: curl .../avagato.sh | bash). In that case there is no local
+# checkout to search, so module loading should fall back to AVAGATO_REPO.
+if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
+  SELF_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+else
+  SELF_DIR=""
+fi
 TMP_DIR=""
 
 cleanup(){ [[ -n "${TMP_DIR:-}" ]] && rm -rf "$TMP_DIR"; }
@@ -11,8 +18,11 @@ trap cleanup EXIT
 
 load_module(){
   local rel="$1"
-  local local_path="$SELF_DIR/$rel"
-  if [[ -f "$local_path" ]]; then
+  local local_path=""
+  if [[ -n "$SELF_DIR" ]]; then
+    local_path="$SELF_DIR/$rel"
+  fi
+  if [[ -n "$local_path" && -f "$local_path" ]]; then
     # shellcheck source=/dev/null
     source "$local_path"
     return
