@@ -7,8 +7,8 @@ GUAC_VERSION="1.6.0"
 TOMCAT="/opt/apache-guacamole/tomcat9"
 GUAC_HOME="/etc/guacamole"
 EXT_DIR="$GUAC_HOME/extensions"
-THEME_JAR="$EXT_DIR/guacamole-avagato-dark-theme.jar"
-LEGACY_THEME_JAR="$EXT_DIR/guacamole-dark-theme.jar"
+DARK_THEME_JAR="$EXT_DIR/guacamole-avagato-dark-theme.jar"
+LIGHT_THEME_JAR="$EXT_DIR/guacamole-avagato-light-theme.jar"
 TOTP_JAR="$EXT_DIR/guacamole-auth-totp-${GUAC_VERSION}.jar"
 MYSQL_JAR="$EXT_DIR/guacamole-auth-jdbc-mysql-${GUAC_VERSION}.jar"
 ROOT_DIR="$TOMCAT/webapps/ROOT"
@@ -43,11 +43,26 @@ root_is_ours(){
 
 status(){
   local root="Not installed" stock="Enabled" totp="Not installed" theme="Not installed"
+  local theme_jar="" variant="" installed="" available=""
   root_is_ours && root="Installed"
   [[ -d "$DISABLED" ]] && stock="Disabled (recommended)"
   [[ -f "$TOTP_JAR" ]] && totp="Installed"
-  [[ -f "$THEME_JAR" ]] && theme="Installed"
-  [[ -f "$LEGACY_THEME_JAR" && ! -f "$THEME_JAR" ]] && theme="Legacy development filename"
+  if [[ -f "$DARK_THEME_JAR" && -f "$LIGHT_THEME_JAR" ]]; then
+    theme="Conflict: Dark and Light are both installed"
+  elif [[ -f "$DARK_THEME_JAR" ]]; then theme_jar="$DARK_THEME_JAR"
+  elif [[ -f "$LIGHT_THEME_JAR" ]]; then theme_jar="$LIGHT_THEME_JAR"
+  fi
+  if [[ -n "$theme_jar" ]]; then
+    variant="$(theme_jar_variant "$theme_jar" 2>/dev/null || true)"
+    if [[ -z "$variant" ]]; then theme="Unknown JAR present"
+    else
+      installed="$(theme_jar_version "$theme_jar")"; available="$(theme_variant_version "$variant")"
+      if [[ -z "$installed" ]]; then theme="${variant^} (unversioned; available: $available)"
+      elif [[ "$installed" == "$available" ]]; then theme="${variant^} ($installed; current)"
+      else theme="${variant^} ($installed; available: $available)"
+      fi
+    fi
+  fi
   say "${bold}Current status${reset}"
   printf '  %-31s %s\n' 'Tomcat root redirect' "$root"
   printf '  %-31s %s\n' 'Tomcat stock applications' "$stock"
@@ -171,37 +186,53 @@ remove_totp(){
 
 install_theme(){
   require_commands mktemp install curl sha256sum
-  say "${bold}Install Avagato Theme${reset}"
+  say "${bold}Install / switch / update Avagato Theme${reset}"
+  local current_variant="" variant="" target="" other="" tmp="" choice
+  if [[ -f "$DARK_THEME_JAR" && -f "$LIGHT_THEME_JAR" ]]; then
+    die "Both Avagato theme filenames are present. Refusing to modify an ambiguous theme state."
+  fi
+  if [[ -f "$DARK_THEME_JAR" ]]; then
+    theme_jar_is_ours "$DARK_THEME_JAR" || die "$(basename "$DARK_THEME_JAR") exists but is not a recognized canonical Avagato theme. Refusing to overwrite it."
+    current_variant="$(theme_jar_variant "$DARK_THEME_JAR")"
+  elif [[ -f "$LIGHT_THEME_JAR" ]]; then
+    theme_jar_is_ours "$LIGHT_THEME_JAR" || die "$(basename "$LIGHT_THEME_JAR") exists but is not a recognized canonical Avagato theme. Refusing to overwrite it."
+    current_variant="$(theme_jar_variant "$LIGHT_THEME_JAR")"
+  fi
+  say "Choose an Avagato theme:"
+  [[ "$current_variant" == "dark" ]] && say "  1. Dark  (currently installed)" || say "  1. Dark"
+  [[ "$current_variant" == "light" ]] && say "  2. Light (currently installed)" || say "  2. Light"
+  say "  Q. Cancel"; say
+  if ! read -e -r -p "Selection: " choice; then say; say "${yellow}Input closed. Theme installation cancelled.${reset}"; return 0; fi
+  case "$choice" in
+    1) variant="dark"; target="$DARK_THEME_JAR"; other="$LIGHT_THEME_JAR" ;;
+    2) variant="light"; target="$LIGHT_THEME_JAR"; other="$DARK_THEME_JAR" ;;
+    q|Q) say "Theme installation cancelled."; return 0 ;;
+    *) say "Invalid selection."; return 0 ;;
+  esac
   backup_warning
-  confirm "Install the Avagato theme?" || return 0
+  confirm "Install the Avagato ${variant^} theme?" || return 0
   warn_other_visual_extensions "$EXT_DIR" || { say "Theme installation cancelled."; return 0; }
-  if [[ -f "$THEME_JAR" ]] && ! theme_jar_is_ours "$THEME_JAR"; then
-    die "$(basename "$THEME_JAR") exists but does not appear to be an Avagato theme. Refusing to overwrite it."
-  fi
-  if [[ -f "$LEGACY_THEME_JAR" ]] && ! theme_jar_is_ours "$LEGACY_THEME_JAR"; then
-    die "$(basename "$LEGACY_THEME_JAR") exists but does not appear to be the Avagato development theme. Refusing to remove it."
-  fi
-  local tmp
+  [[ ! -f "$target" ]] || theme_jar_is_ours "$target" || die "$(basename "$target") exists but is not a recognized canonical Avagato theme. Refusing to overwrite it."
+  [[ ! -f "$other" ]] || theme_jar_is_ours "$other" || die "$(basename "$other") exists but is not a recognized canonical Avagato theme. Refusing to remove it."
   tmp="$(mktemp)"; rm -f "$tmp"; tmp="${tmp}.jar"
   trap 'rm -f "${tmp:-}"' RETURN
-  download_theme_variant dark "$tmp" || die "Avagato Dark theme download or verification failed."
-  install -o root -g root -m 644 "$tmp" "$THEME_JAR"
-  [[ -f "$LEGACY_THEME_JAR" ]] && rm -f "$LEGACY_THEME_JAR"
+  download_theme_variant "$variant" "$tmp" || die "Avagato ${variant^} theme download or verification failed."
+  install -o root -g root -m 644 "$tmp" "$target"
+  [[ -f "$other" ]] && rm -f "$other"
   trap - RETURN; rm -f "$tmp"
   restart_tomcat
-  say "${green}SUCCESS:${reset} Avagato Theme installed as $(basename "$THEME_JAR")."
+  say "${green}SUCCESS:${reset} Avagato ${variant^} theme installed as $(basename "$target")."
 }
 
 remove_theme(){
-  [[ -f "$THEME_JAR" || -f "$LEGACY_THEME_JAR" ]] || { say "Avagato Theme is not installed."; return 0; }
-  if [[ -f "$THEME_JAR" ]] && ! theme_jar_is_ours "$THEME_JAR"; then
-    die "$(basename "$THEME_JAR") does not appear to be an Avagato theme. Refusing to remove it."
-  fi
-  if [[ -f "$LEGACY_THEME_JAR" ]] && ! theme_jar_is_ours "$LEGACY_THEME_JAR"; then
-    die "$(basename "$LEGACY_THEME_JAR") does not appear to be the Avagato development theme. Refusing to remove it."
-  fi
+  if [[ -f "$DARK_THEME_JAR" && -f "$LIGHT_THEME_JAR" ]]; then die "Both Avagato theme filenames are present. Refusing to modify an ambiguous theme state."; fi
+  local theme_jar=""
+  [[ -f "$DARK_THEME_JAR" ]] && theme_jar="$DARK_THEME_JAR"
+  [[ -f "$LIGHT_THEME_JAR" ]] && theme_jar="$LIGHT_THEME_JAR"
+  [[ -n "$theme_jar" ]] || { say "Avagato Theme is not installed."; return 0; }
+  theme_jar_is_ours "$theme_jar" || die "$(basename "$theme_jar") is not a recognized canonical Avagato theme. Refusing to remove it."
   confirm "Remove the Avagato Theme?" || return 0
-  rm -f "$THEME_JAR" "$LEGACY_THEME_JAR"
+  rm -f "$theme_jar"
   restart_tomcat
   say "${green}SUCCESS:${reset} Avagato Theme removed."
 }
@@ -212,11 +243,14 @@ restore_all(){
   backup_warning
   confirm "Restore everything managed by Avagato?" || return 0
 
-  if [[ -f "$THEME_JAR" ]] && ! theme_jar_is_ours "$THEME_JAR"; then
-    die "$(basename "$THEME_JAR") does not appear to be an Avagato theme. Refusing to remove it."
+  if [[ -f "$DARK_THEME_JAR" && -f "$LIGHT_THEME_JAR" ]]; then
+    die "Both Avagato theme filenames are present. Refusing to modify an ambiguous theme state."
   fi
-  if [[ -f "$LEGACY_THEME_JAR" ]] && ! theme_jar_is_ours "$LEGACY_THEME_JAR"; then
-    die "$(basename "$LEGACY_THEME_JAR") does not appear to be the Avagato development theme. Refusing to remove it."
+  local theme_jar=""
+  [[ -f "$DARK_THEME_JAR" ]] && theme_jar="$DARK_THEME_JAR"
+  [[ -f "$LIGHT_THEME_JAR" ]] && theme_jar="$LIGHT_THEME_JAR"
+  if [[ -n "$theme_jar" ]] && ! theme_jar_is_ours "$theme_jar"; then
+    die "$(basename "$theme_jar") is not a recognized canonical Avagato theme. Refusing to remove it."
   fi
   if root_is_ours || [[ -e "$ROOT_ORIGINAL" ]] || [[ -d "$DISABLED" ]]; then
     root_is_ours || die "Tomcat has Avagato-preserved files, but the live ROOT does not match Avagato's redirect. Refusing partial restore."
@@ -229,7 +263,7 @@ restore_all(){
     done
   fi
 
-  [[ -f "$THEME_JAR" || -f "$LEGACY_THEME_JAR" ]] && rm -f "$THEME_JAR" "$LEGACY_THEME_JAR"
+  [[ -n "$theme_jar" ]] && rm -f "$theme_jar"
   [[ -f "$TOTP_JAR" ]] && rm -f "$TOTP_JAR"
   if root_is_ours && [[ -d "$ROOT_ORIGINAL" ]]; then
     rm -rf "$ROOT_DIR"; mv "$ROOT_ORIGINAL" "$ROOT_DIR"
@@ -255,7 +289,7 @@ menu(){
     say "${bold}Install / Configure${reset}"
     say "  1. Clean up Tomcat & redirect / → /guacamole/  (recommended)"
     say "  2. Install TOTP authentication"
-    say "  3. Install Avagato Theme"
+    say "  3. Install / switch / update Avagato Theme"
     say "  4. Apply all enhancements"
     say
     say "${bold}Restore${reset}"
