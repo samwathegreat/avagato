@@ -45,6 +45,45 @@ build_theme_variant(){
     *) return 1 ;;
   esac
 }
+theme_manifest_name(){
+  theme_manifest "$1" | sed -n 's/.*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1
+}
+
+theme_manifest_namespace(){
+  theme_manifest "$1" | sed -n 's/.*"namespace"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1
+}
+
+theme_jar_looks_visual(){
+  local jar_path="$1" manifest name namespace
+  [[ -f "$jar_path" ]] || return 1
+  manifest="$(theme_manifest "$jar_path")"
+  name="$(theme_manifest_name "$jar_path")"
+  namespace="$(theme_manifest_namespace "$jar_path")"
+  [[ "$name $namespace" =~ [Tt][Hh][Ee][Mm][Ee] ]] && return 0
+  printf '%s\n' "$manifest" | grep -Eq '"css"[[:space:]]*:[[:space:]]*\[[^]]+\.css' && return 0
+  return 1
+}
+
+warn_other_visual_extensions(){
+  local ext_dir="$1" jar found=0
+  [[ -d "$ext_dir" ]] || return 0
+  for jar in "$ext_dir"/*.jar; do
+    [[ -f "$jar" ]] || continue
+    theme_jar_is_ours "$jar" && continue
+    if theme_jar_looks_visual "$jar"; then
+      if [[ "$found" == 0 ]]; then
+        say "${yellow}WARNING:${reset} Other extension JARs that appear to affect Guacamole\'s visual styling were found:"
+      fi
+      printf '  - %s\n' "$(basename "$jar")"
+      found=1
+    fi
+  done
+  if [[ "$found" == 1 ]]; then
+    say "Avagato will not modify or remove these files, but multiple visual extensions can conflict."
+    confirm "Continue installing Avagato alongside them?" || return 1
+  fi
+  return 0
+}
 
 build_theme()(
   local out="$1" work asset_base
