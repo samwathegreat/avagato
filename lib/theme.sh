@@ -2,6 +2,7 @@
 # Shared Avagato Guacamole theme builder.
 
 AVAGATO_THEME_VERSION="1.0.0"
+AVAGATO_LIGHT_THEME_VERSION="0.1.0"
 
 theme_manifest(){
   unzip -p "$1" guac-manifest.json 2>/dev/null || true
@@ -103,5 +104,88 @@ html,body,#content,.login-ui{background:#121416!important;color:#e5e7e9!importan
 .login-ui .login-dialog .app-name{display:none!important}
 CSS
   (cd "$work" && jar cf "$out" guac-manifest.json avagato-theme-version dark.css branding.js translations resources)
+)
+
+
+
+build_light_theme()(
+  local out="$1" work asset_base
+  work="$(mktemp -d)"
+  trap 'rm -rf "${work:-}"' EXIT
+  asset_base="${AVAGATO_ASSET_BASE:-https://raw.githubusercontent.com/samwathegreat/avagato/main/theme/assets}"
+  install -d "$work/META-INF" "$work/resources/images" "$work/translations"
+
+  curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-login.png" -o "$work/resources/images/avagato-login.png"
+  curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-large.png" -o "$work/resources/images/avagato-large.png"
+  curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-small.png" -o "$work/resources/images/avagato-small.png"
+
+  cat > "$work/guac-manifest.json" <<'JSON'
+{
+  "guacamoleVersion":"1.6.0",
+  "name":"Avagato Light Theme",
+  "namespace":"avagato-light-theme",
+  "css":["dark.css"],
+  "js":["branding.js"],
+  "resources":{
+    "resources/images/avagato-login.png":"image/png",
+    "resources/images/avagato-large.png":"image/png",
+    "resources/images/avagato-small.png":"image/png"
+  },
+  "translations":["translations/en.json"]
+}
+JSON
+  # Use a top-level metadata file. The jar tool generates META-INF itself and may
+  # replace a pre-created META-INF directory while adding its own manifest.
+  printf '%s\n' "$AVAGATO_LIGHT_THEME_VERSION" > "$work/avagato-theme-version"
+  cat > "$work/translations/en.json" <<'JSON'
+{"APP":{"NAME":"Avagato"}}
+JSON
+  cat > "$work/branding.js" <<'JS'
+(function () {
+    'use strict';
+
+    function applyAvagatoBranding() {
+        var iconPath = 'app/ext/avagato-light-theme/resources/images/avagato-small.png';
+        var largeIconPath = 'app/ext/avagato-light-theme/resources/images/avagato-large.png';
+        var icons = document.querySelectorAll('link[rel~="icon"]');
+        var i;
+
+        if (icons.length) {
+            for (i = 0; i < icons.length; i++)
+                icons[i].href = iconPath;
+        }
+        else {
+            var icon = document.createElement('link');
+            icon.rel = 'icon';
+            icon.type = 'image/png';
+            icon.href = iconPath;
+            document.head.appendChild(icon);
+        }
+
+        var apple = document.querySelectorAll('link[rel="apple-touch-icon"]');
+        for (i = 0; i < apple.length; i++)
+            apple[i].href = largeIconPath;
+    }
+
+    if (document.readyState === 'loading')
+        document.addEventListener('DOMContentLoaded', applyAvagatoBranding);
+    else
+        applyAvagatoBranding();
+}());
+JS
+  cat > "$work/dark.css" <<'CSS'
+/* Avagato Light Theme - stock Guacamole colors with Avagato branding only. */
+.login-ui .login-dialog .logo{
+    width:18em!important;
+    height:15em!important;
+    max-width:100%!important;
+    margin:-1.5em auto -1em!important;
+    background-image:url('app/ext/avagato-light-theme/resources/images/avagato-login.png')!important;
+    background-position:center!important;
+    background-repeat:no-repeat!important;
+    background-size:contain!important
+}
+.login-ui .login-dialog .app-name{display:none!important}
+CSS  (cd "$work" && jar cf "$out" guac-manifest.json avagato-theme-version dark.css branding.js translations resources)
 )
 
