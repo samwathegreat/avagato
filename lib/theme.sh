@@ -1,10 +1,22 @@
 #!/usr/bin/env bash
 # Shared Avagato Guacamole theme builder.
 
+AVAGATO_THEME_VERSION="1.0.0"
+
+theme_manifest(){
+  unzip -p "$1" guac-manifest.json 2>/dev/null || true
+}
+
+theme_jar_version(){
+  local manifest
+  manifest="$(theme_manifest "$1")"
+  sed -n 's/.*"avagatoThemeVersion":"\([^"]*\)".*/\1/p' <<<"$manifest"
+}
+
 theme_jar_is_ours(){
   local jar_path="$1" manifest
   [[ -f "$jar_path" ]] || return 1
-  manifest="$(unzip -p "$jar_path" guac-manifest.json 2>/dev/null || true)"
+  manifest="$(theme_manifest "$jar_path")"
   [[ "$manifest" == *'"guacamoleVersion":"1.6.0"'* ]] &&
   { [[ "$manifest" == *'"name":"Avagato Theme"'* ]] || [[ "$manifest" == *'"name":"Avagato Dark Theme"'* ]]; } &&
   { [[ "$manifest" == *'"namespace":"avagato-dark-theme"'* ]] || [[ "$manifest" == *'"namespace":"dark-theme"'* ]]; }
@@ -26,6 +38,7 @@ build_theme()(
   "guacamoleVersion":"1.6.0",
   "name":"Avagato Theme",
   "namespace":"avagato-dark-theme",
+  "avagatoThemeVersion":"1.0.0",
   "css":["dark.css"],
   "js":["branding.js"],
   "resources":{
