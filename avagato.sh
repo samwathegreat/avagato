@@ -58,8 +58,8 @@ if [[ "$AVAGATO_NATIVE" == 1 ]]; then
 fi
 
 if [[ "$AVAGATO_DOCKER_STACK" == 1 ]]; then
-  say "Existing Avagato Docker deployment detected."
-  say "Docker management will be enabled after the Docker module is added."
+  load_module lib/docker.sh
+  docker_menu
   exit 0
 fi
 
@@ -70,9 +70,11 @@ if [[ "$AVAGATO_GUAC_DOCKER" == 1 ]]; then
 fi
 
 if [[ "$AVAGATO_DOCKER" == 1 && "$AVAGATO_COMPOSE" == 1 ]]; then
-  say "Docker Engine and Docker Compose detected."
-  say "No existing Guacamole installation was detected."
-  say "Avagato's Docker deployment module is the next implementation stage."
+  if [[ "$AVAGATO_NATIVE_EVIDENCE" == 1 ]]; then
+    die "Native Guacamole evidence was detected, but it does not match Avagato's supported native layout. Avagato will not create a second Guacamole installation until the residual or unknown native installation is resolved."
+  fi
+  load_module lib/docker.sh
+  docker_install
   exit 0
 fi
 
