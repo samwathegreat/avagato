@@ -7,6 +7,22 @@ detect_native_community_scripts(){
   [[ -f /opt/apache-guacamole/tomcat9/webapps/guacamole.war ]]
 }
 
+# Broader conflict detection used before creating a new Docker deployment.
+# This intentionally catches incomplete/moved native installations which are
+# not safe for Avagato to manage as a supported native layout.
+detect_native_guacamole_evidence(){
+  [[ -d /etc/guacamole ]] && return 0
+  [[ -f /opt/apache-guacamole/tomcat9/webapps/guacamole.war ]] && return 0
+  [[ -f /var/lib/tomcat9/webapps/guacamole.war ]] && return 0
+  [[ -f /var/lib/tomcat10/webapps/guacamole.war ]] && return 0
+  [[ -f /var/lib/tomcat10/webapps/guacamole/WEB-INF/web.xml ]] && return 0
+  [[ -f /var/lib/tomcat9/webapps/guacamole/WEB-INF/web.xml ]] && return 0
+  if command -v systemctl >/dev/null 2>&1 && systemctl cat tomcat >/dev/null 2>&1; then
+    systemctl cat tomcat 2>/dev/null | grep -Eqi 'guacamole|apache-guacamole' && return 0
+  fi
+  return 1
+}
+
 detect_docker_engine(){ command -v docker >/dev/null 2>&1; }
 detect_docker_compose(){ docker compose version >/dev/null 2>&1; }
 
@@ -27,8 +43,9 @@ detect_avagato_docker(){
 }
 
 detect_environment(){
-  AVAGATO_NATIVE=0 AVAGATO_DOCKER=0 AVAGATO_COMPOSE=0 AVAGATO_GUAC_DOCKER=0 AVAGATO_DOCKER_STACK=0
+  AVAGATO_NATIVE=0 AVAGATO_NATIVE_EVIDENCE=0 AVAGATO_DOCKER=0 AVAGATO_COMPOSE=0 AVAGATO_GUAC_DOCKER=0 AVAGATO_DOCKER_STACK=0
   if detect_native_community_scripts; then AVAGATO_NATIVE=1; fi
+  if detect_native_guacamole_evidence; then AVAGATO_NATIVE_EVIDENCE=1; fi
   if detect_docker_engine; then AVAGATO_DOCKER=1; fi
   if [[ "$AVAGATO_DOCKER" == 1 ]] && detect_docker_compose; then AVAGATO_COMPOSE=1; fi
   if [[ "$AVAGATO_DOCKER" == 1 ]] && detect_guacamole_docker; then AVAGATO_GUAC_DOCKER=1; fi
