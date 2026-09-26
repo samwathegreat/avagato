@@ -27,21 +27,29 @@ theme_variant_version(){
   esac
 }
 
-theme_jar_variant(){
+theme_jar_identity(){
   local jar_path="$1" actual
   [[ -f "$jar_path" ]] || return 1
   command -v sha256sum >/dev/null 2>&1 || return 1
   actual="$(sha256sum "$jar_path" | awk '{print $1}')"
-  [[ "$actual" == "$AVAGATO_DARK_THEME_SHA256" ]] && { printf '%s\n' dark; return 0; }
-  [[ "$actual" == "$AVAGATO_LIGHT_THEME_SHA256" ]] && { printf '%s\n' light; return 0; }
-  return 1
+  case "$actual" in
+    "$AVAGATO_DARK_THEME_SHA256") printf '%s\n' 'dark 1.0.1' ;;
+    59508a8cab71b3ba8c6f84f51d625a6d239021342be54774a973829adca8ff9b) printf '%s\n' 'dark 1.0.0' ;;
+    "$AVAGATO_LIGHT_THEME_SHA256") printf '%s\n' 'light 1.0.0' ;;
+    *) return 1 ;;
+  esac
+}
+
+theme_jar_variant(){
+  local identity
+  identity="$(theme_jar_identity "$1")" || return 1
+  printf '%s\n' "${identity%% *}"
 }
 
 theme_jar_version(){
-  local variant
-  variant="$(theme_jar_variant "$1" 2>/dev/null || true)"
-  [[ -n "$variant" ]] || return 1
-  theme_variant_version "$variant"
+  local identity
+  identity="$(theme_jar_identity "$1")" || return 1
+  printf '%s\n' "${identity#* }"
 }
 
 theme_jar_is_ours(){
