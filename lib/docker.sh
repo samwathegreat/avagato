@@ -249,63 +249,125 @@ disable_totp(){
 
 
 rdp_drive_enabled(){
-  grep -Fq -- '- ./data/drive:/drive' "$COMPOSE_FILE" 2>/dev/null
+  awk '
+    /^  guacd:$/ { in_guacd=1; next }
+    in_guacd && /^  [^ ]/ { exit }
+    in_guacd && /^      - \.\/data\/drive:\/drive$/ { found=1 }
+    END { exit(found ? 0 : 1) }
+  ' "$COMPOSE_FILE" 2>/dev/null
+}
+
+write_rdp_drive_candidate(){
+  local mode="$1" source="$2" target="$3"
+  awk -v mode="$mode" '
+    function fail(msg) { print msg > "/dev/stderr"; exit 42 }
+    BEGIN {
+      in_guacd=0; seen_guacd=0; in_volumes=0
+      seen_volumes=0; seen_drive=0; inserted=0
+    }
+    /^  guacd:$/ {
+      if (seen_guacd) fail("Multiple guacd service blocks found.")
+      seen_guacd=1; in_guacd=1
+      print
+      next
+    }
+    in_guacd && /^  [^ ]/ {
+      if (in_volumes) {
+        if (mode == "disable" && kept_volume == 0) {
+          # Intentionally omit the now-empty guacd volumes key.
+        }
+        in_volumes=0
+      }
+      if (mode == "enable" && !inserted) {
+        if (seen_volumes) fail("Could not safely add the Avagato drive mapping to the existing guacd volumes block.")
+        print "    volumes:"
+        print "      - ./data/drive:/drive"
+        inserted=1
+      }
+      in_guacd=0
+      print
+      next
+    }
+    in_guacd && /^    volumes:$/ {
+      if (seen_volumes) fail("Multiple guacd volumes keys found.")
+      seen_volumes=1; in_volumes=1; kept_volume=0
+      volumes_line=$0
+      next
+    }
+    in_guacd && in_volumes {
+      if (/^      - \.\/data\/drive:\/drive$/) {
+        seen_drive++
+        if (seen_drive > 1) fail("Multiple Avagato /drive mappings found.")
+        if (mode == "enable") {
+          if (!kept_volume) print volumes_line
+          print
+          kept_volume=1
+          inserted=1
+        }
+        next
+      }
+      if (/^      - /) {
+        if (!kept_volume) print volumes_line
+        print
+        kept_volume=1
+        next
+      }
+      if (/^[[:space:]]*$/) {
+        if (kept_volume) print
+        next
+      }
+      if (kept_volume == 0 && mode == "disable") {
+        # Omit an empty guacd volumes key.
+      }
+      in_volumes=0
+    }
+    { print }
+    END {
+      if (!seen_guacd) fail("guacd service block not found.")
+      if (mode == "disable" && seen_drive != 1) fail("Expected exactly one Avagato /drive mapping.")
+      if (mode == "enable" && seen_drive == 0 && in_guacd) {
+        if (seen_volumes) {
+          if (!kept_volume) print volumes_line
+          print "      - ./data/drive:/drive"
+        } else {
+          print "    volumes:"
+          print "      - ./data/drive:/drive"
+        }
+      }
+    }
+  ' "$source" > "$target"
 }
 
 configure_rdp_drive(){
-  local compose_backup
+  local candidate
   say "${bold}Configure RDP drive sharing${reset}"
   say "Host path:      $AVAGATO_DIR/data/drive"
   say "guacd path:     /drive"
   say
 
+  candidate="$(mktemp)"
+  trap 'rm -f "${candidate:-}"' RETURN
+
   if rdp_drive_enabled; then
     say "RDP drive sharing is currently enabled."
-    confirm "Disable RDP drive sharing?" || return 0
-    compose_backup="$(mktemp)"
-    cp "$COMPOSE_FILE" "$compose_backup"
-    # Remove only Avagato's own guacd drive mapping. Preserve any other
-    # user-added guacd volume entries. If the volumes list becomes empty,
-    # remove only that now-empty key so the Compose file remains valid.
-    awk '
-      BEGIN { in_guacd=0; in_volumes=0; kept_volume=0 }
-      /^  guacd:$/ { in_guacd=1 }
-      in_guacd && /^  [^ ]/ && !/^  guacd:$/ { in_guacd=0; in_volumes=0 }
-      in_guacd && /^    volumes:$/ {
-        in_volumes=1
-        volumes_line=$0
-        kept_volume=0
-        next
-      }
-      in_guacd && in_volumes {
-        if (/^      - \.\/data\/drive:\/drive$/) next
-        if (/^      - /) {
-          if (!kept_volume) print volumes_line
-          kept_volume=1
-          print
-          next
-        }
-        if (!kept_volume && !/^[[:space:]]*$/) {
-          # No remaining list entries: intentionally omit the volumes key.
-        }
-        in_volumes=0
-      }
-      { print }
-      END {
-        if (in_guacd && in_volumes && kept_volume == 0) {
-          # Empty trailing volumes key is intentionally omitted.
-        }
-      }
-    ' "$COMPOSE_FILE" > "$COMPOSE_FILE.tmp"
-    mv "$COMPOSE_FILE.tmp" "$COMPOSE_FILE"
-    if ! docker_compose config >/dev/null || ! docker_compose up -d --force-recreate guacd; then
-      cp "$compose_backup" "$COMPOSE_FILE"
-      rm -f "$compose_backup"
-      docker_compose up -d --force-recreate guacd >/dev/null 2>&1 || true
-      say "${red}ERROR:${reset} RDP drive sharing could not be disabled; the previous configuration was restored."
-      return 1
+    confirm "Disable RDP drive sharing?" || { trap - RETURN; rm -f "$candidate"; return 0; }
+
+    if ! write_rdp_drive_candidate disable "$COMPOSE_FILE" "$candidate"; then
+      say "${red}ERROR:${reset} Avagato could not safely identify its RDP drive mapping. No changes were made."
+      trap - RETURN; rm -f "$candidate"; return 1
     fi
-    rm -f "$compose_backup"
+    if ! docker compose --env-file "$ENV_FILE" -f "$candidate" config >/dev/null; then
+      say "${red}ERROR:${reset} The proposed Compose change failed validation. No changes were made."
+      trap - RETURN; rm -f "$candidate"; return 1
+    fi
+
+    install -m 644 "$candidate" "$COMPOSE_FILE"
+    if ! docker_compose up -d --force-recreate guacd; then
+      say "${red}ERROR:${reset} guacd could not be recreated after disabling RDP drive sharing."
+      say "The validated Compose change remains in place; run Avagato again after resolving the Docker error."
+      trap - RETURN; rm -f "$candidate"; return 1
+    fi
+    trap - RETURN; rm -f "$candidate"
     say "${green}SUCCESS:${reset} RDP drive sharing disabled."
     say
     say "${yellow}IMPORTANT:${reset} Avagato did not delete the host directory or anything stored in it."
@@ -317,19 +379,25 @@ configure_rdp_drive(){
 
   say "RDP drive sharing is currently disabled."
   say "Enabling it exposes $AVAGATO_DIR/data/drive to guacd as /drive."
-  confirm "Enable RDP drive sharing?" || return 0
+  confirm "Enable RDP drive sharing?" || { trap - RETURN; rm -f "$candidate"; return 0; }
   install -d -m 755 "$AVAGATO_DIR/data/drive"
-  compose_backup="$(mktemp)"
-  cp "$COMPOSE_FILE" "$compose_backup"
-  sed -i '/^[[:space:]]*org\.avagato\.component: "guacd"$/a\    volumes:\n      - ./data/drive:/drive' "$COMPOSE_FILE"
-  if ! docker_compose config >/dev/null || ! docker_compose up -d --force-recreate guacd; then
-    cp "$compose_backup" "$COMPOSE_FILE"
-    rm -f "$compose_backup"
-    docker_compose up -d --force-recreate guacd >/dev/null 2>&1 || true
-    say "${red}ERROR:${reset} RDP drive sharing could not be enabled; the previous configuration was restored."
-    return 1
+
+  if ! write_rdp_drive_candidate enable "$COMPOSE_FILE" "$candidate"; then
+    say "${red}ERROR:${reset} Avagato could not safely add its RDP drive mapping. No Compose changes were made."
+    trap - RETURN; rm -f "$candidate"; return 1
   fi
-  rm -f "$compose_backup"
+  if ! docker compose --env-file "$ENV_FILE" -f "$candidate" config >/dev/null; then
+    say "${red}ERROR:${reset} The proposed Compose change failed validation. No Compose changes were made."
+    trap - RETURN; rm -f "$candidate"; return 1
+  fi
+
+  install -m 644 "$candidate" "$COMPOSE_FILE"
+  if ! docker_compose up -d --force-recreate guacd; then
+    say "${red}ERROR:${reset} guacd could not be recreated after enabling RDP drive sharing."
+    say "The validated Compose change remains in place; run Avagato again after resolving the Docker error."
+    trap - RETURN; rm -f "$candidate"; return 1
+  fi
+  trap - RETURN; rm -f "$candidate"
   say "${green}SUCCESS:${reset} RDP drive sharing enabled."
   say "Host path:  $AVAGATO_DIR/data/drive"
   say "guacd path: /drive"
