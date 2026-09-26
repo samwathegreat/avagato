@@ -6,6 +6,7 @@ COMPOSE_FILE="$AVAGATO_DIR/compose.yaml"
 ENV_FILE="$AVAGATO_DIR/.env"
 GUAC_VERSION="1.6.0"
 POSTGRES_MAJOR="17"
+DOCKER_THEME_JAR="$AVAGATO_DIR/guacamole-home/extensions/guacamole-avagato-dark-theme.jar"
 
 docker_compose(){ docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"; }
 
@@ -151,6 +152,32 @@ disable_totp(){
   say "${green}SUCCESS:${reset} TOTP disabled. Existing enrollment data was left untouched."
 }
 
+
+install_docker_theme(){
+  require_commands curl jar mktemp install unzip
+  load_module lib/theme.sh
+  say "${bold}Install / update Avagato Theme${reset}"
+  confirm "Install the Avagato theme in this Docker deployment?" || return 0
+  local tmp
+  tmp="$(mktemp)"; rm -f "$tmp"; tmp="${tmp}.jar"
+  trap 'rm -f "${tmp:-}"' RETURN
+  build_theme "$tmp"
+  install -o root -g root -m 644 "$tmp" "$DOCKER_THEME_JAR"
+  trap - RETURN; rm -f "$tmp"
+  docker_compose up -d guacamole
+  say "${green}SUCCESS:${reset} Avagato Theme installed/updated."
+}
+
+remove_docker_theme(){
+  [[ -f "$DOCKER_THEME_JAR" ]] || { say "Avagato Theme is not installed."; return 0; }
+  load_module lib/theme.sh
+  theme_jar_is_ours "$DOCKER_THEME_JAR" || die "The theme JAR does not appear to be Avagato-managed. Refusing to remove it."
+  confirm "Remove the Avagato Theme from this Docker deployment?" || return 0
+  rm -f "$DOCKER_THEME_JAR"
+  docker_compose up -d guacamole
+  say "${green}SUCCESS:${reset} Avagato Theme removed."
+}
+
 docker_install(){
   require_commands docker openssl sed awk grep install
   [[ "$AVAGATO_DOCKER_STACK" == 0 ]] || { docker_menu; return; }
@@ -171,10 +198,17 @@ docker_install(){
   write_env
   write_compose
   generate_schema
+  load_module lib/theme.sh
+  local theme_tmp
+  theme_tmp="$(mktemp)"; rm -f "$theme_tmp"; theme_tmp="${theme_tmp}.jar"
+  build_theme "$theme_tmp"
+  install -o root -g root -m 644 "$theme_tmp" "$DOCKER_THEME_JAR"
+  rm -f "$theme_tmp"
+  docker_compose config >/dev/null || die "Generated Compose configuration failed validation."
   docker_compose up -d
 
   say
-  say "${green}SUCCESS:${reset} Avagato Docker deployment created."
+  say "${green}SUCCESS:${reset} Avagato Docker deployment created with the Avagato Theme."
   say "Open: http://<this-host>:$GUACAMOLE_HTTP_PORT/"
   say
   say "${bold}Required account bootstrap${reset}"
@@ -198,8 +232,10 @@ docker_menu(){
     say "${bold}Manage${reset}"
     say "  1. Enable TOTP authentication"
     say "  2. Disable TOTP authentication"
-    say "  3. Change HTTP port"
-    say "  4. Start / reconcile deployment"
+    say "  3. Install / update Avagato Theme"
+    say "  4. Remove Avagato Theme"
+    say "  5. Change HTTP port"
+    say "  6. Start / reconcile deployment"
     say
     say "  Q. Quit"
     say
@@ -207,8 +243,10 @@ docker_menu(){
     case "$choice" in
       1) enable_totp; pause;;
       2) disable_totp; pause;;
-      3) change_http_port; pause;;
-      4) docker_compose up -d; say "${green}SUCCESS:${reset} Deployment reconciled."; pause;;
+      3) install_docker_theme; pause;;
+      4) remove_docker_theme; pause;;
+      5) change_http_port; pause;;
+      6) docker_compose up -d; say "${green}SUCCESS:${reset} Deployment reconciled."; pause;;
       q|Q) return 0;;
       *) say "Invalid selection."; sleep 1;;
     esac
