@@ -13,8 +13,8 @@ detect_avagato_docker(){ [[ -f /opt/avagato/compose.yaml ]]; }
 
 detect_environment(){
   AVAGATO_NATIVE=0 AVAGATO_DOCKER=0 AVAGATO_COMPOSE=0 AVAGATO_DOCKER_STACK=0
-  detect_native_community_scripts && AVAGATO_NATIVE=1
-  detect_docker_engine && AVAGATO_DOCKER=1
+  if detect_native_community_scripts; then AVAGATO_NATIVE=1; fi
+  if detect_docker_engine; then AVAGATO_DOCKER=1; fi
   if [[ "$AVAGATO_DOCKER" == 1 ]] && detect_docker_compose; then AVAGATO_COMPOSE=1; fi
-  detect_avagato_docker && AVAGATO_DOCKER_STACK=1
+  if detect_avagato_docker; then AVAGATO_DOCKER_STACK=1; fi
 }
