@@ -487,11 +487,14 @@ install_docker_theme(){
   say "${bold}Install / switch / update Avagato Theme${reset}"
   say "  1. Dark"
   say "  2. Light"
+  say "  Q. Cancel"
+  say
   local choice variant target other label
-  read -e -r -p "Theme [1-2]: " choice
+  if ! read -e -r -p "Selection: " choice; then say; say "${yellow}Input closed. Theme installation cancelled.${reset}"; return 0; fi
   case "$choice" in
     1) variant=dark; target="$DOCKER_DARK_THEME_JAR"; other="$DOCKER_LIGHT_THEME_JAR"; label=Dark ;;
     2) variant=light; target="$DOCKER_LIGHT_THEME_JAR"; other="$DOCKER_DARK_THEME_JAR"; label=Light ;;
+    q|Q) say "Theme installation cancelled."; return 0 ;;
     *) say "Invalid selection."; return 0 ;;
   esac
   say "Available version: $(theme_variant_version "$variant")"
