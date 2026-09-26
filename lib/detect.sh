@@ -17,8 +17,14 @@ detect_native_guacamole_evidence(){
   [[ -f /var/lib/tomcat10/webapps/guacamole.war ]] && return 0
   [[ -f /var/lib/tomcat10/webapps/guacamole/WEB-INF/web.xml ]] && return 0
   [[ -f /var/lib/tomcat9/webapps/guacamole/WEB-INF/web.xml ]] && return 0
-  if command -v systemctl >/dev/null 2>&1 && systemctl cat tomcat >/dev/null 2>&1; then
-    systemctl cat tomcat 2>/dev/null | grep -Eqi 'guacamole|apache-guacamole' && return 0
+  if command -v systemctl >/dev/null 2>&1; then
+    local unit
+    for unit in tomcat tomcat9 tomcat10; do
+      if systemctl cat "$unit" >/dev/null 2>&1 &&
+         systemctl cat "$unit" 2>/dev/null | grep -Eqi 'guacamole|apache-guacamole'; then
+        return 0
+      fi
+    done
   fi
   return 1
 }
