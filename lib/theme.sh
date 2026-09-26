@@ -3,18 +3,43 @@
 
 AVAGATO_THEME_VERSION="1.0.0"
 AVAGATO_LIGHT_THEME_VERSION="1.0.0"
+AVAGATO_DARK_THEME_SHA256="59508a8cab71b3ba8c6f84f51d625a6d239021342be54774a973829adca8ff9b"
+AVAGATO_LIGHT_THEME_SHA256="620add8cf6efa9b45526865f19739093b7679091a25d2218f51d7aa30429fb70"
+AVAGATO_THEME_BASE="${AVAGATO_THEME_BASE:-https://raw.githubusercontent.com/samwathegreat/avagato/main/theme}"
 
 theme_manifest(){
   unzip -p "$1" guac-manifest.json 2>/dev/null || true
 }
 
-theme_jar_version(){
-  unzip -p "$1" avagato-theme-version 2>/dev/null | tr -d '\r\n' || true
+theme_variant_sha256(){
+  case "$1" in
+    dark) printf '%s\n' "$AVAGATO_DARK_THEME_SHA256" ;;
+    light) printf '%s\n' "$AVAGATO_LIGHT_THEME_SHA256" ;;
+    *) return 1 ;;
+  esac
+}
+
+theme_variant_version(){
+  case "$1" in
+    dark) printf '%s\n' "$AVAGATO_THEME_VERSION" ;;
+    light) printf '%s\n' "$AVAGATO_LIGHT_THEME_VERSION" ;;
+    *) return 1 ;;
+  esac
 }
 
 theme_jar_variant(){
-  local jar_path="$1" manifest
+  local jar_path="$1" actual
   [[ -f "$jar_path" ]] || return 1
+  command -v sha256sum >/dev/null 2>&1 || return 1
+  actual="$(sha256sum "$jar_path" | awk '{print $1}')"
+  [[ "$actual" == "$AVAGATO_DARK_THEME_SHA256" ]] && { printf '%s\n' dark; return 0; }
+  [[ "$actual" == "$AVAGATO_LIGHT_THEME_SHA256" ]] && { printf '%s\n' light; return 0; }
+
+  # Development installs created before prebuilt artifacts were introduced may
+  # contain the same Avagato theme with different ZIP timestamps. Recognize
+  # those only when unzip is already available so they can be replaced safely.
+  command -v unzip >/dev/null 2>&1 || return 1
+  local manifest
   manifest="$(theme_manifest "$jar_path")"
   [[ "$manifest" == *'"guacamoleVersion":"1.6.0"'* ]] || return 1
   if [[ "$manifest" == *'"name":"Avagato Theme"'* && "$manifest" == *'"namespace":"avagato-dark-theme"'* ]]; then
@@ -26,16 +51,31 @@ theme_jar_variant(){
   fi
 }
 
+theme_jar_version(){
+  local variant
+  variant="$(theme_jar_variant "$1" 2>/dev/null || true)"
+  [[ -n "$variant" ]] || return 1
+  theme_variant_version "$variant"
+}
+
 theme_jar_is_ours(){
   theme_jar_variant "$1" >/dev/null
 }
 
-theme_variant_version(){
-  case "$1" in
-    dark) printf '%s\n' "$AVAGATO_THEME_VERSION" ;;
-    light) printf '%s\n' "$AVAGATO_LIGHT_THEME_VERSION" ;;
-    *) return 1 ;;
-  esac
+download_theme_variant(){
+  local variant="$1" out="$2" expected actual url tmp
+  expected="$(theme_variant_sha256 "$variant")" || return 1
+  url="$AVAGATO_THEME_BASE/avagato-$variant-theme.jar"
+  tmp="${out}.download"
+  rm -f "$tmp"
+  curl -fL --retry 3 --proto '=https' --tlsv1.2 "$url" -o "$tmp" || { rm -f "$tmp"; return 1; }
+  actual="$(sha256sum "$tmp" | awk '{print $1}')"
+  if [[ "$actual" != "$expected" ]]; then
+    rm -f "$tmp"
+    say "${red}ERROR:${reset} Downloaded Avagato $variant theme failed SHA-256 verification."
+    return 1
+  fi
+  mv "$tmp" "$out"
 }
 
 build_theme_variant(){
