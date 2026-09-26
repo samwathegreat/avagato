@@ -279,9 +279,13 @@ write_rdp_drive_candidate(){
         in_volumes=0
       }
       if (mode == "enable" && !inserted) {
-        if (seen_volumes) fail("Could not safely add the Avagato drive mapping to the existing guacd volumes block.")
-        print "    volumes:"
-        print "      - ./data/drive:/drive"
+        if (seen_volumes) {
+          if (!kept_volume) print volumes_line
+          print "      - ./data/drive:/drive"
+        } else {
+          print "    volumes:"
+          print "      - ./data/drive:/drive"
+        }
         inserted=1
       }
       in_guacd=0
