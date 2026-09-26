@@ -169,6 +169,7 @@ docker_status(){
   printf '  %-25s %s\n' 'HTTP port' "$port"
   printf '  %-25s %s\n' 'TOTP' "$(grep -Eq '^[[:space:]]+TOTP_ENABLED:[[:space:]]*\"?true\"?' "$COMPOSE_FILE" 2>/dev/null && echo Enabled || echo Disabled)"
   printf '  %-25s %s\n' 'Avagato Theme' "$theme_status"
+  printf '  %-25s %s\n' 'RDP drive sharing' "$rdp_drive_status"
   say
   docker_compose ps 2>/dev/null || true
 }
