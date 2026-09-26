@@ -106,6 +106,6 @@ html,body,#content,.login-ui{background:#121416!important;color:#e5e7e9!importan
 }
 .login-ui .login-dialog .app-name{display:none!important}
 CSS
-  (cd "$work" && jar cf "$out" guac-manifest.json dark.css branding.js translations resources)
+  (cd "$work" && jar cf "$out" guac-manifest.json avagato-theme-version dark.css branding.js translations resources)
 )
 
