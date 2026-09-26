@@ -16,7 +16,12 @@ avagato_banner(){
 die(){ say "${red}ERROR:${reset} $*" >&2; exit 1; }
 require_commands(){ local cmd; for cmd in "$@"; do command -v "$cmd" >/dev/null 2>&1 || die "Required command not found: $cmd"; done; }
 pause(){ read -r -p "Press Enter to continue..." _; }
-confirm(){ local a; read -r -p "$1 [y/N] " a; [[ "$a" =~ ^[Yy]$ ]]; }
+confirm(){
+  local a
+  read -r -p "$1 [y/N] " a || return 1
+  [[ "$a" =~ ^[Yy]$ ]] && return 0
+  return 1
+}
 
 is_pve_host(){
   command -v pveversion >/dev/null 2>&1 &&
