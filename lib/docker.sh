@@ -23,8 +23,12 @@ prompt_http_port(){
     p="${p:-$default}"
     [[ "$p" =~ ^[0-9]+$ ]] && (( p >= 1 && p <= 65535 )) || { say "${yellow}Enter a TCP port from 1 through 65535.${reset}"; continue; }
     if docker_port_in_use "$p"; then
-      say "${yellow}Port $p is already in use. Choose another port or resolve the conflict.${reset}"
-      continue
+      if [[ -n "${AVAGATO_ALLOW_CURRENT_PORT:-}" && "$p" == "$AVAGATO_ALLOW_CURRENT_PORT" ]]; then
+        :
+      else
+        say "${yellow}Port $p is already in use. Choose another port or resolve the conflict.${reset}"
+        continue
+      fi
     fi
     GUACAMOLE_HTTP_PORT="$p"
     return 0
@@ -118,7 +122,7 @@ docker_status(){
 change_http_port(){
   local old
   old="$(sed -n 's/^GUACAMOLE_HTTP_PORT=//p' "$ENV_FILE" | head -n1)"
-  prompt_http_port "$old"
+  AVAGATO_ALLOW_CURRENT_PORT="$old" prompt_http_port "$old"
   [[ "$GUACAMOLE_HTTP_PORT" == "$old" ]] && { say "HTTP port unchanged."; return 0; }
   write_env
   docker_compose up -d guacamole
