@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-AVAGATO_VERSION="1.3.1"
+AVAGATO_VERSION="1.3.2"
 AVAGATO_REPO="${AVAGATO_REPO:-https://raw.githubusercontent.com/samwathegreat/avagato/main}"
 # BASH_SOURCE is unset when the documented launcher is executed via stdin
 # (for example: curl .../avagato.sh | bash). In that case there is no local
