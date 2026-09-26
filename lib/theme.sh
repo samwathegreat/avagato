@@ -2,7 +2,7 @@
 # Shared Avagato Guacamole theme builder.
 
 AVAGATO_THEME_VERSION="1.0.0"
-AVAGATO_LIGHT_THEME_VERSION="0.1.0"
+AVAGATO_LIGHT_THEME_VERSION="1.0.0"
 
 theme_manifest(){
   unzip -p "$1" guac-manifest.json 2>/dev/null || true
@@ -12,13 +12,38 @@ theme_jar_version(){
   unzip -p "$1" avagato-theme-version 2>/dev/null | tr -d '\r\n' || true
 }
 
-theme_jar_is_ours(){
+theme_jar_variant(){
   local jar_path="$1" manifest
   [[ -f "$jar_path" ]] || return 1
   manifest="$(theme_manifest "$jar_path")"
-  [[ "$manifest" == *'"guacamoleVersion":"1.6.0"'* ]] &&
-  [[ "$manifest" == *'"name":"Avagato Theme"'* ]] &&
-  [[ "$manifest" == *'"namespace":"avagato-dark-theme"'* ]]
+  [[ "$manifest" == *'"guacamoleVersion":"1.6.0"'* ]] || return 1
+  if [[ "$manifest" == *'"name":"Avagato Theme"'* && "$manifest" == *'"namespace":"avagato-dark-theme"'* ]]; then
+    printf '%s\n' dark
+  elif [[ "$manifest" == *'"name":"Avagato Light Theme"'* && "$manifest" == *'"namespace":"avagato-light-theme"'* ]]; then
+    printf '%s\n' light
+  else
+    return 1
+  fi
+}
+
+theme_jar_is_ours(){
+  theme_jar_variant "$1" >/dev/null
+}
+
+theme_variant_version(){
+  case "$1" in
+    dark) printf '%s\n' "$AVAGATO_THEME_VERSION" ;;
+    light) printf '%s\n' "$AVAGATO_LIGHT_THEME_VERSION" ;;
+    *) return 1 ;;
+  esac
+}
+
+build_theme_variant(){
+  case "$1" in
+    dark) build_theme "$2" ;;
+    light) build_light_theme "$2" ;;
+    *) return 1 ;;
+  esac
 }
 
 build_theme()(
