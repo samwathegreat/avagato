@@ -150,7 +150,7 @@ docker_status(){
       local installed_theme_version
       installed_theme_version="$(theme_jar_version "$DOCKER_THEME_JAR")"
       if [[ -z "$installed_theme_version" ]]; then
-        theme_status="Installed (legacy/unversioned; update available: $AVAGATO_THEME_VERSION)"
+        theme_status="Installed (unversioned; available: $AVAGATO_THEME_VERSION)"
       elif [[ "$installed_theme_version" == "$AVAGATO_THEME_VERSION" ]]; then
         theme_status="Installed ($installed_theme_version; current)"
       else
@@ -254,7 +254,7 @@ install_docker_theme(){
   if [[ -n "$installed_version" ]]; then
     say "Installed version: $installed_version"
   elif [[ -f "$DOCKER_THEME_JAR" ]]; then
-    say "Installed version: legacy / unversioned"
+    say "Installed version: unversioned"
   else
     say "Installed version: not installed"
   fi
