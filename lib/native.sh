@@ -170,7 +170,7 @@ remove_totp(){
 }
 
 install_theme(){
-  require_commands jar mktemp install curl
+  require_commands mktemp install curl sha256sum
   say "${bold}Install Avagato Theme${reset}"
   backup_warning
   confirm "Install the Avagato theme?" || return 0
@@ -184,7 +184,7 @@ install_theme(){
   local tmp
   tmp="$(mktemp)"; rm -f "$tmp"; tmp="${tmp}.jar"
   trap 'rm -f "${tmp:-}"' RETURN
-  build_theme "$tmp"
+  download_theme_variant dark "$tmp" || die "Avagato Dark theme download or verification failed."
   install -o root -g root -m 644 "$tmp" "$THEME_JAR"
   [[ -f "$LEGACY_THEME_JAR" ]] && rm -f "$LEGACY_THEME_JAR"
   trap - RETURN; rm -f "$tmp"
