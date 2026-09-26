@@ -20,7 +20,13 @@ load_module(){
   command -v curl >/dev/null 2>&1 || { printf 'ERROR: curl is required to load Avagato modules.\n' >&2; exit 1; }
   [[ -n "$TMP_DIR" ]] || TMP_DIR="$(mktemp -d)"
   local_path="$TMP_DIR/$(basename "$rel")"
-  curl -fsSL --retry 3 --proto '=https' --tlsv1.2 "$AVAGATO_REPO/$rel" -o "$local_path"
+  local module_url="$AVAGATO_REPO/$rel"
+  # Avoid stale child modules when the launcher itself is current. This is
+  # internal only; users can keep using the clean, stable avagato.sh URL.
+  if [[ "$module_url" == https://raw.githubusercontent.com/* ]]; then
+    module_url="${module_url}?avagato=$(date +%s)"
+  fi
+  curl -fsSL --retry 3 --proto '=https' --tlsv1.2 "$module_url" -o "$local_path"
   # shellcheck source=/dev/null
   source "$local_path"
 }
