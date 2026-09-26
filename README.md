@@ -114,6 +114,21 @@ The Tomcat cleanup is reversible: the original ROOT application is preserved as 
 
 Removing TOTP removes only the extension JAR and restarts Tomcat. It does not alter Guacamole's database.
 
+## Docker RDP drive sharing
+
+For Docker deployments, Avagato can optionally expose a directory for Guacamole RDP drive sharing. The default mapping created by Avagato is:
+
+```text
+Docker host:     /opt/avagato/data/drive
+guacd container: /drive
+```
+
+The important path for host storage is **`/opt/avagato/data/drive`**. If the Docker host is itself a VM or container and you want Guacamole file transfers to live on storage provided by the underlying host, mount or bind-mount that storage **to `/opt/avagato/data/drive` on the Docker host**. For example, in a Proxmox environment you could expose suitable host-backed storage at that path. Avagato then maps it into the `guacd` container as `/drive`.
+
+This can be useful when you want transferred files stored outside the Docker container's own filesystem, placed on larger or separately managed storage, or included in a host-level storage/backup strategy. The external mount should be configured and available before relying on it for file storage.
+
+Inside Guacamole's RDP connection settings, the drive path presented to `guacd` is `/drive`; the `/opt/avagato/data/drive` path exists on the Docker host.
+
 ## What Avagato does not do
 
 Avagato does not replace the Community Scripts installer, change Guacamole's context path, manage your reverse proxy, alter TOTP secrets directly in the database, or provide a general-purpose installer for arbitrary Guacamole layouts.
