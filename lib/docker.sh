@@ -342,6 +342,43 @@ write_rdp_drive_candidate(){
   ' "$source" > "$target"
 }
 
+check_existing_rdp_drive_access(){
+  local path="$AVAGATO_DIR/data/drive" mode uid gid owner_digit group_digit other_digit
+  [[ -d "$path" ]] || return 0
+
+  uid="$(stat -c '%u' "$path" 2>/dev/null || true)"
+  gid="$(stat -c '%g' "$path" 2>/dev/null || true)"
+  mode="$(stat -c '%a' "$path" 2>/dev/null || true)"
+  [[ "$uid" =~ ^[0-9]+$ && "$gid" =~ ^[0-9]+$ && "$mode" =~ ^[0-7]{3,4}$ ]] || return 0
+
+  mode="${mode: -3}"
+  owner_digit="${mode:0:1}"
+  group_digit="${mode:1:1}"
+  other_digit="${mode:2:1}"
+
+  if { [[ "$uid" == 1000 ]] && (( (8#$owner_digit & 3) == 3 )); } ||
+     { [[ "$gid" == 1000 ]] && (( (8#$group_digit & 3) == 3 )); } ||
+     (( (8#$other_digit & 3) == 3 )); then
+    return 0
+  fi
+
+  say
+  say "${yellow}WARNING:${reset} Existing RDP drive storage may not be writable and traversable by guacd."
+  say "  Path:       $path"
+  say "  Ownership:  $uid:$gid"
+  say "  Mode:       $mode"
+  say
+  say "Avagato's Guacamole 1.6.0 guacd container runs as UID/GID 1000:1000."
+  say "The drive directory and any child directories Guacamole uses must grant that"
+  say "identity the required access. Avagato will not change an existing directory"
+  say "or external bind mount automatically."
+  say
+  say "See the README section 'Permissions for an external Proxmox bind mount':"
+  say "  https://github.com/samwathegreat/avagato#permissions-for-an-external-proxmox-bind-mount"
+  say
+  return 1
+}
+
 configure_rdp_drive(){
   local candidate
   say "${bold}Configure RDP drive sharing${reset}"
@@ -386,6 +423,9 @@ configure_rdp_drive(){
   confirm "Enable RDP drive sharing?" || { trap - RETURN; rm -f "$candidate"; return 0; }
   if [[ -e "$AVAGATO_DIR/data/drive" ]]; then
     [[ -d "$AVAGATO_DIR/data/drive" ]] || { say "${red}ERROR:${reset} $AVAGATO_DIR/data/drive exists but is not a directory."; trap - RETURN; rm -f "$candidate"; return 1; }
+    if ! check_existing_rdp_drive_access; then
+      confirm "Continue enabling RDP drive sharing anyway?" || { trap - RETURN; rm -f "$candidate"; return 0; }
+    fi
   else
     install -d -o 1000 -g 1000 -m 755 "$AVAGATO_DIR/data/drive"
   fi
@@ -527,6 +567,11 @@ docker_install(){
   fi
 
   prompt_rdp_drive
+  if [[ "$AVAGATO_RDP_DRIVE" == 1 && -d "$AVAGATO_DIR/data/drive" ]]; then
+    if ! check_existing_rdp_drive_access; then
+      confirm "Continue installation with the existing RDP drive permissions?" || return 0
+    fi
+  fi
   say
   say "Installation summary:"
   say "  HTTP port:        $GUACAMOLE_HTTP_PORT"
@@ -537,7 +582,11 @@ docker_install(){
   confirm "Create this Avagato Docker deployment?" || return 0
 
   install -d -m 755 "$AVAGATO_DIR" "$AVAGATO_DIR/init" "$AVAGATO_DIR/data/postgres" "$AVAGATO_DIR/guacamole-home/extensions"
-  install -d -o 1000 -g 1000 -m 755 "$AVAGATO_DIR/data/drive"
+  if [[ ! -e "$AVAGATO_DIR/data/drive" ]]; then
+    install -d -o 1000 -g 1000 -m 755 "$AVAGATO_DIR/data/drive"
+  elif [[ ! -d "$AVAGATO_DIR/data/drive" ]]; then
+    die "$AVAGATO_DIR/data/drive exists but is not a directory."
+  fi
   install -d -o root -g root -m 700 "$AVAGATO_DIR/secrets"
   generate_password > "$AVAGATO_DIR/secrets/postgres_password"
   chmod 644 "$AVAGATO_DIR/secrets/postgres_password"
