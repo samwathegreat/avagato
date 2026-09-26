@@ -8,11 +8,7 @@ theme_manifest(){
 }
 
 theme_jar_version(){
-  {
-    unzip -p "$1" avagato-theme-version 2>/dev/null ||
-    unzip -p "$1" META-INF/avagato-theme-version 2>/dev/null ||
-    true
-  } | tr -d '\r\n'
+  unzip -p "$1" avagato-theme-version 2>/dev/null | tr -d '\r\n' || true
 }
 
 theme_jar_is_ours(){
@@ -20,8 +16,8 @@ theme_jar_is_ours(){
   [[ -f "$jar_path" ]] || return 1
   manifest="$(theme_manifest "$jar_path")"
   [[ "$manifest" == *'"guacamoleVersion":"1.6.0"'* ]] &&
-  { [[ "$manifest" == *'"name":"Avagato Theme"'* ]] || [[ "$manifest" == *'"name":"Avagato Dark Theme"'* ]]; } &&
-  { [[ "$manifest" == *'"namespace":"avagato-dark-theme"'* ]] || [[ "$manifest" == *'"namespace":"dark-theme"'* ]]; }
+  [[ "$manifest" == *'"name":"Avagato Theme"'* ]] &&
+  [[ "$manifest" == *'"namespace":"avagato-dark-theme"'* ]]
 }
 
 build_theme()(
