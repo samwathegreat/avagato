@@ -340,7 +340,10 @@ docker_install(){
   say "Open: http://<this-host>:$GUACAMOLE_HTTP_PORT/"
   say
   say "${bold}Required account bootstrap${reset}"
-  say "  1. Sign in with the initial Guacamole bootstrap account."
+  say "  Initial username: guacadmin"
+  say "  Initial password: guacadmin"
+  say
+  say "  1. Sign in with the initial Guacamole bootstrap account above."
   say "  2. Recommended: create a separate administrator account with full administrative permissions."
   say "  3. Log out and verify that the new administrator account can administer Guacamole."
   say "  4. From that verified account, disable login for guacadmin."
