@@ -8,7 +8,11 @@ theme_manifest(){
 }
 
 theme_jar_version(){
-  unzip -p "$1" META-INF/avagato-theme-version 2>/dev/null | tr -d '\r\n' || true
+  {
+    unzip -p "$1" avagato-theme-version 2>/dev/null ||
+    unzip -p "$1" META-INF/avagato-theme-version 2>/dev/null ||
+    true
+  } | tr -d '\r\n'
 }
 
 theme_jar_is_ours(){
@@ -46,7 +50,9 @@ build_theme()(
   "translations":["translations/en.json"]
 }
 JSON
-  printf '%s\n' "$AVAGATO_THEME_VERSION" > "$work/META-INF/avagato-theme-version"
+  # Use a top-level metadata file. The jar tool generates META-INF itself and may
+  # replace a pre-created META-INF directory while adding its own manifest.
+  printf '%s\n' "$AVAGATO_THEME_VERSION" > "$work/avagato-theme-version"
   cat > "$work/translations/en.json" <<'JSON'
 {"APP":{"NAME":"Avagato"}}
 JSON
