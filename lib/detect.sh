@@ -45,7 +45,7 @@ detect_guacamole_docker(){
 detect_avagato_docker(){
   docker ps -a --filter 'label=org.avagato.managed=true' --format '{{.ID}}' 2>/dev/null |
     grep -q . && return 0
-  [[ -f /opt/avagato/compose.yaml ]] && detect_guacamole_docker
+  [[ -f /opt/avagato/docker-compose.yaml ]] && detect_guacamole_docker
 }
 
 detect_environment(){
