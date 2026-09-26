@@ -384,7 +384,11 @@ configure_rdp_drive(){
   say "RDP drive sharing is currently disabled."
   say "Enabling it exposes $AVAGATO_DIR/data/drive to guacd as /drive."
   confirm "Enable RDP drive sharing?" || { trap - RETURN; rm -f "$candidate"; return 0; }
-  install -d -m 755 "$AVAGATO_DIR/data/drive"
+  if [[ -e "$AVAGATO_DIR/data/drive" ]]; then
+    [[ -d "$AVAGATO_DIR/data/drive" ]] || { say "${red}ERROR:${reset} $AVAGATO_DIR/data/drive exists but is not a directory."; trap - RETURN; rm -f "$candidate"; return 1; }
+  else
+    install -d -o 1000 -g 1000 -m 755 "$AVAGATO_DIR/data/drive"
+  fi
 
   if ! write_rdp_drive_candidate enable "$COMPOSE_FILE" "$candidate"; then
     say "${red}ERROR:${reset} Avagato could not safely add its RDP drive mapping. No Compose changes were made."
@@ -532,7 +536,8 @@ docker_install(){
   say
   confirm "Create this Avagato Docker deployment?" || return 0
 
-  install -d -m 755 "$AVAGATO_DIR" "$AVAGATO_DIR/init" "$AVAGATO_DIR/data/postgres" "$AVAGATO_DIR/data/drive" "$AVAGATO_DIR/guacamole-home/extensions"
+  install -d -m 755 "$AVAGATO_DIR" "$AVAGATO_DIR/init" "$AVAGATO_DIR/data/postgres" "$AVAGATO_DIR/guacamole-home/extensions"
+  install -d -o 1000 -g 1000 -m 755 "$AVAGATO_DIR/data/drive"
   install -d -o root -g root -m 700 "$AVAGATO_DIR/secrets"
   generate_password > "$AVAGATO_DIR/secrets/postgres_password"
   chmod 644 "$AVAGATO_DIR/secrets/postgres_password"
