@@ -266,7 +266,11 @@ menu(){
     say
     say "  Q. Quit"
     say
-    read -r -p "Selection: " choice
+    if ! read -e -r -p "Selection: " choice; then
+      say
+      say "${yellow}Input closed. Exiting Avagato.${reset}"
+      return 0
+    fi
     case "$choice" in
       1) install_tomcat_cleanup; pause;; 2) install_totp; pause;; 3) install_theme; pause;; 4) install_all; pause;;
       5) restore_tomcat; pause;; 6) remove_totp; pause;; 7) remove_theme; pause;; 8) restore_all; pause;;
