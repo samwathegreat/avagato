@@ -38,6 +38,28 @@ prompt_http_port(){
 
 generate_password(){ openssl rand -hex 24; }
 
+docker_preflight(){
+  local arch free_kb
+  arch="$(uname -m)"
+  case "$arch" in
+    x86_64|amd64|aarch64|arm64) ;;
+    *) die "Unsupported or untested CPU architecture: $arch" ;;
+  esac
+
+  free_kb="$(df -Pk /opt 2>/dev/null | awk 'NR==2 {print $4}')"
+  if [[ "$free_kb" =~ ^[0-9]+$ ]] && (( free_kb < 2097152 )); then
+    say "${yellow}WARNING:${reset} Less than 2 GiB of free space is available under /opt."
+    confirm "Continue anyway?" || return 1
+  fi
+}
+
+prompt_rdp_drive(){
+  AVAGATO_RDP_DRIVE=0
+  say
+  say "Optional RDP drive sharing exposes /opt/avagato/data/drive to guacd as /drive."
+  confirm "Enable RDP drive sharing?" && AVAGATO_RDP_DRIVE=1
+}
+
 write_compose(){
   cat > "$COMPOSE_FILE" <<'YAML'
 services:
@@ -65,6 +87,7 @@ services:
     labels:
       org.avagato.managed: "true"
       org.avagato.component: "guacd"
+__AVAGATO_GUACD_DRIVE__
 
   guacamole:
     image: guacamole/guacamole:1.6.0
@@ -78,10 +101,8 @@ services:
       POSTGRESQL_HOSTNAME: postgres
       POSTGRESQL_DATABASE: guacamole_db
       POSTGRESQL_USERNAME: guacamole_user
-      POSTGRESQL_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRESQL_PASSWORD: "${POSTGRESQL_PASSWORD}"
       WEBAPP_CONTEXT: ROOT
-    secrets:
-      - postgres_password
     ports:
       - "${GUACAMOLE_HTTP_PORT}:8080"
     volumes:
@@ -94,10 +115,20 @@ secrets:
   postgres_password:
     file: ./secrets/postgres_password
 YAML
+  if [[ "${AVAGATO_RDP_DRIVE:-0}" == 1 ]]; then
+    sed -i 's|^__AVAGATO_GUACD_DRIVE__$|    volumes:\n      - ./data/drive:/drive|' "$COMPOSE_FILE"
+  else
+    sed -i '/^__AVAGATO_GUACD_DRIVE__$/d' "$COMPOSE_FILE"
+  fi
 }
 
 write_env(){
-  printf 'GUACAMOLE_HTTP_PORT=%s\n' "$GUACAMOLE_HTTP_PORT" > "$ENV_FILE"
+  local db_password
+  db_password="$(cat "$AVAGATO_DIR/secrets/postgres_password")"
+  {
+    printf 'GUACAMOLE_HTTP_PORT=%s\n' "$GUACAMOLE_HTTP_PORT"
+    printf 'POSTGRESQL_PASSWORD=%s\n' "$db_password"
+  } > "$ENV_FILE"
   chmod 600 "$ENV_FILE"
 }
 
@@ -179,7 +210,8 @@ remove_docker_theme(){
 }
 
 docker_install(){
-  require_commands docker openssl sed awk grep install curl
+  require_commands docker openssl sed awk grep install curl df uname
+  docker_preflight || return 0
   [[ "$AVAGATO_DOCKER_STACK" == 0 ]] || { docker_menu; return; }
   say "${bold}Avagato Docker installation${reset}"
   say "Apache Guacamole ${GUAC_VERSION} + guacd ${GUAC_VERSION} + PostgreSQL ${POSTGRES_MAJOR}"
@@ -188,8 +220,15 @@ docker_install(){
   say "After installation, create and verify your real administrator account first; Avagato can enable TOTP afterward."
   say
   prompt_http_port 8080
+  prompt_rdp_drive
   say
-  confirm "Create the Avagato Docker deployment on host port $GUACAMOLE_HTTP_PORT?" || return 0
+  say "Installation summary:"
+  say "  HTTP port:        $GUACAMOLE_HTTP_PORT"
+  say "  Avagato Theme:    Enabled"
+  say "  TOTP:             Disabled for initial bootstrap"
+  say "  RDP drive share:  $([[ "$AVAGATO_RDP_DRIVE" == 1 ]] && echo Enabled || echo Disabled)"
+  say
+  confirm "Create this Avagato Docker deployment?" || return 0
 
   install -d -m 755 "$AVAGATO_DIR" "$AVAGATO_DIR/init" "$AVAGATO_DIR/data/postgres" "$AVAGATO_DIR/data/drive" "$AVAGATO_DIR/guacamole-home/extensions"
   install -d -o root -g root -m 700 "$AVAGATO_DIR/secrets"
