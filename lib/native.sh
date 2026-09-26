@@ -174,6 +174,7 @@ install_theme(){
   say "${bold}Install Avagato Theme${reset}"
   backup_warning
   confirm "Install the Avagato theme?" || return 0
+  warn_other_visual_extensions "$EXT_DIR" || { say "Theme installation cancelled."; return 0; }
   if [[ -f "$THEME_JAR" ]] && ! theme_jar_is_ours "$THEME_JAR"; then
     die "$(basename "$THEME_JAR") exists but does not appear to be an Avagato theme. Refusing to overwrite it."
   fi
