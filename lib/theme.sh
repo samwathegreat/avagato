@@ -174,7 +174,12 @@ JSON
 }());
 JS
   cat > "$work/dark.css" <<'CSS'
-/* Avagato Light Theme - stock Guacamole colors with Avagato branding only. */
+/* Avagato Light Theme - stock Guacamole colors with Avagato branding. */
+.login-ui .login-dialog{
+    width:24em!important;
+    max-width:90%!important;
+    padding:1.5em!important
+}
 .login-ui .login-dialog .logo{
     width:18em!important;
     height:15em!important;
@@ -186,6 +191,16 @@ JS
     background-size:contain!important
 }
 .login-ui .login-dialog .app-name{display:none!important}
+.login-ui .login-fields .labeled-field .field-header{
+    color:#666!important;
+    opacity:1!important
+}
+.login-ui .login-fields .labeled-field.empty input{
+    background:transparent!important
+}
+.login-ui .login-fields .labeled-field input:focus{
+    background:#fff!important
+}
 CSS
   (cd "$work" && jar cf "$out" guac-manifest.json avagato-theme-version dark.css branding.js translations resources)
 )
