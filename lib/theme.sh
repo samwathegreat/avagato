@@ -28,7 +28,7 @@ build_theme()(
   asset_base="${AVAGATO_ASSET_BASE:-https://raw.githubusercontent.com/samwathegreat/avagato/main/theme/assets}"
   install -d "$work/META-INF" "$work/resources/images" "$work/translations"
 
-  curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-login-light.png" -o "$work/resources/images/avagato-login.png"
+  curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-login.png" -o "$work/resources/images/avagato-login.png"
   curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-large.png" -o "$work/resources/images/avagato-large.png"
   curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-small.png" -o "$work/resources/images/avagato-small.png"
 
@@ -93,9 +93,9 @@ html,body,#content,.login-ui{background:#121416!important;color:#e5e7e9!importan
 /* Avagato branding. Assets are served by Guacamole's extension resource handler. */
 .login-ui .login-dialog .logo{
     width:18em!important;
-    height:15em!important;
+    height:12em!important;
     max-width:100%!important;
-    margin:-1.5em auto -1em!important;
+    margin:-2.25em auto -2em!important;
     background-image:url('app/ext/avagato-dark-theme/resources/images/avagato-login.png')!important;
     background-position:center!important;
     background-repeat:no-repeat!important;
@@ -115,7 +115,7 @@ build_light_theme()(
   asset_base="${AVAGATO_ASSET_BASE:-https://raw.githubusercontent.com/samwathegreat/avagato/main/theme/assets}"
   install -d "$work/META-INF" "$work/resources/images" "$work/translations"
 
-  curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-login-light.png" -o "$work/resources/images/avagato-login.png"
+  curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-login.png" -o "$work/resources/images/avagato-login.png"
   curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-large.png" -o "$work/resources/images/avagato-large.png"
   curl -fL --retry 3 --proto '=https' --tlsv1.2 "$asset_base/avagato-small.png" -o "$work/resources/images/avagato-small.png"
 
