@@ -175,11 +175,12 @@ JSON
 JS
   cat > "$work/dark.css" <<'CSS'
 /* Avagato Light Theme - stock Guacamole colors with Avagato branding only. */
+html,body,#content,.login-ui{background:#f5f6f6!important}
 .login-ui .login-dialog .logo{
     width:18em!important;
-    height:15em!important;
+    height:12em!important;
     max-width:100%!important;
-    margin:-1.5em auto -1em!important;
+    margin:-2.25em auto -2em!important;
     background-image:url('app/ext/avagato-light-theme/resources/images/avagato-login.png')!important;
     background-position:center!important;
     background-repeat:no-repeat!important;
