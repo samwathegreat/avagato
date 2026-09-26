@@ -66,7 +66,7 @@ This location is currently **fixed and is not configurable by the installer**. T
 
 **Recommended procedure: create a dedicated Docker LXC with Proxmox VE Community Scripts, then let Avagato install Guacamole inside it.**
 
-1. On your Proxmox VE host, use the [Proxmox VE Community Scripts](https://community-scripts.github.io/ProxmoxVE/) Docker LXC installer to create a dedicated Docker container.
+1. On your Proxmox VE host, use the [Proxmox VE Community Scripts Docker LXC installer](https://community-scripts.org/scripts/docker) to create a dedicated Docker container.
 2. Open the console or SSH into the new Docker LXC.
 3. Run Avagato **inside the Docker LXC**:
 
