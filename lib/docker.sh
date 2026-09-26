@@ -207,6 +207,21 @@ enable_totp(){
     return 1
   fi
   say "${green}SUCCESS:${reset} TOTP enabled. Applicable users will enroll when they next log in."
+  say
+  say "${bold}${yellow}IMPORTANT — HARD-REFRESH GUACAMOLE BEFORE CONTINUING${reset}"
+  say "Guacamole was recreated to enable TOTP. Any browser tab that was already open may"
+  say "still have stale Guacamole files loaded and can show a broken TOTP enrollment screen."
+  say
+  say "Desktop:"
+  say "  - Windows/Linux: press Ctrl+Shift+R (or Ctrl+F5)."
+  say "  - macOS: press Command+Shift+R."
+  say
+  say "Phone/tablet:"
+  say "  - Close the Guacamole tab, open a new tab, and load Guacamole again."
+  say "  - If the enrollment page still looks wrong, clear this site's browser data/cache"
+  say "    and reopen Guacamole."
+  say
+  say "Do this before scanning the TOTP QR code or attempting enrollment."
 }
 
 disable_totp(){
@@ -226,6 +241,7 @@ disable_totp(){
   fi
   rm -f "$compose_backup"
   say "${green}SUCCESS:${reset} TOTP disabled. Existing enrollment data was left untouched."
+  say "${yellow}IMPORTANT:${reset} Hard-refresh any open Guacamole browser tabs before continuing."
 }
 
 
