@@ -186,6 +186,7 @@ JS
     background-size:contain!important
 }
 .login-ui .login-dialog .app-name{display:none!important}
-CSS  (cd "$work" && jar cf "$out" guac-manifest.json avagato-theme-version dark.css branding.js translations resources)
+CSS
+  (cd "$work" && jar cf "$out" guac-manifest.json avagato-theme-version dark.css branding.js translations resources)
 )
 
