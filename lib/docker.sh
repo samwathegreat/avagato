@@ -269,11 +269,19 @@ docker_install(){
   say "${bold}Docker installation setup${reset}"
   say
   prompt_http_port 8080
+
+  AVAGATO_THEME_ENABLED=1
+  say
+  say "Avagato Theme applies Avagato's dark theme and branding to Guacamole."
+  if ! confirm "Enable Avagato Theme?"; then
+    AVAGATO_THEME_ENABLED=0
+  fi
+
   prompt_rdp_drive
   say
   say "Installation summary:"
   say "  HTTP port:        $GUACAMOLE_HTTP_PORT"
-  say "  Avagato Theme:    Enabled"
+  say "  Avagato Theme:    $([[ "$AVAGATO_THEME_ENABLED" == 1 ]] && echo Enabled || echo Disabled)"
   say "  TOTP:             Disabled for initial bootstrap"
   say "  RDP drive share:  $([[ "$AVAGATO_RDP_DRIVE" == 1 ]] && echo Enabled || echo Disabled)"
   say
@@ -286,12 +294,14 @@ docker_install(){
   write_env
   write_compose
   generate_schema
-  load_module lib/theme.sh
-  local theme_tmp
-  theme_tmp="$(mktemp)"; rm -f "$theme_tmp"; theme_tmp="${theme_tmp}.jar"
-  build_theme "$theme_tmp"
-  install -o root -g root -m 644 "$theme_tmp" "$DOCKER_THEME_JAR"
-  rm -f "$theme_tmp"
+  if [[ "$AVAGATO_THEME_ENABLED" == 1 ]]; then
+    load_module lib/theme.sh
+    local theme_tmp
+    theme_tmp="$(mktemp)"; rm -f "$theme_tmp"; theme_tmp="${theme_tmp}.jar"
+    build_theme "$theme_tmp"
+    install -o root -g root -m 644 "$theme_tmp" "$DOCKER_THEME_JAR"
+    rm -f "$theme_tmp"
+  fi
   docker_compose config >/dev/null || die "Generated Compose configuration failed validation."
   docker_compose up -d
 
