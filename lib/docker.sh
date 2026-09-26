@@ -147,7 +147,15 @@ docker_status(){
   if [[ -f "$DOCKER_THEME_JAR" ]]; then
     load_module lib/theme.sh
     if command -v unzip >/dev/null 2>&1 && theme_jar_is_ours "$DOCKER_THEME_JAR"; then
-      theme_status="Installed"
+      local installed_theme_version
+      installed_theme_version="$(theme_jar_version "$DOCKER_THEME_JAR")"
+      if [[ -z "$installed_theme_version" ]]; then
+        theme_status="Installed (legacy/unversioned; update available: $AVAGATO_THEME_VERSION)"
+      elif [[ "$installed_theme_version" == "$AVAGATO_THEME_VERSION" ]]; then
+        theme_status="Installed ($installed_theme_version; current)"
+      else
+        theme_status="Installed ($installed_theme_version; available: $AVAGATO_THEME_VERSION)"
+      fi
     else
       theme_status="Unknown JAR present"
     fi
@@ -224,7 +232,17 @@ install_docker_theme(){
   require_commands curl jar mktemp install unzip
   load_module lib/theme.sh
   say "${bold}Install / update Avagato Theme${reset}"
-  confirm "Install the Avagato theme in this Docker deployment?" || return 0
+  local installed_version=""
+  [[ -f "$DOCKER_THEME_JAR" ]] && installed_version="$(theme_jar_version "$DOCKER_THEME_JAR")"
+  if [[ -n "$installed_version" ]]; then
+    say "Installed version: $installed_version"
+  elif [[ -f "$DOCKER_THEME_JAR" ]]; then
+    say "Installed version: legacy / unversioned"
+  else
+    say "Installed version: not installed"
+  fi
+  say "Available version: $AVAGATO_THEME_VERSION"
+  confirm "Install the available Avagato theme?" || return 0
   local tmp
   tmp="$(mktemp)"; rm -f "$tmp"; tmp="${tmp}.jar"
   trap 'rm -f "${tmp:-}"' RETURN
