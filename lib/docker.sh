@@ -143,8 +143,9 @@ generate_schema(){
 }
 
 docker_status(){
-  local port="unknown" theme_status="Not installed" theme_jar="" variant="" installed="" available=""
+  local port="unknown" theme_status="Not installed" theme_jar="" variant="" installed="" available="" rdp_drive_status="Disabled"
   [[ -f "$ENV_FILE" ]] && port="$(sed -n 's/^GUACAMOLE_HTTP_PORT=//p' "$ENV_FILE" | head -n1)"
+  grep -Fq -- '- ./data/drive:/drive' "$COMPOSE_FILE" 2>/dev/null && rdp_drive_status="Enabled"
   load_module lib/theme.sh
   if [[ -f "$DOCKER_DARK_THEME_JAR" && -f "$DOCKER_LIGHT_THEME_JAR" ]]; then
     theme_status="Conflict: Dark and Light are both installed"
@@ -245,6 +246,67 @@ disable_totp(){
   say "${yellow}IMPORTANT:${reset} Hard-refresh any open Guacamole browser tabs before continuing."
 }
 
+
+
+rdp_drive_enabled(){
+  grep -Fq -- '- ./data/drive:/drive' "$COMPOSE_FILE" 2>/dev/null
+}
+
+configure_rdp_drive(){
+  local compose_backup
+  say "${bold}Configure RDP drive sharing${reset}"
+  say "Host path:      $AVAGATO_DIR/data/drive"
+  say "guacd path:     /drive"
+  say
+
+  if rdp_drive_enabled; then
+    say "RDP drive sharing is currently enabled."
+    confirm "Disable RDP drive sharing?" || return 0
+    compose_backup="$(mktemp)"
+    cp "$COMPOSE_FILE" "$compose_backup"
+    sed -i '\|^[[:space:]]*- ./data/drive:/drive$|d' "$COMPOSE_FILE"
+    sed -i '/^[[:space:]]*volumes:[[:space:]]*$/{
+      N
+      /\n[[:space:]]*labels:[[:space:]]*$/{
+        s/^[[:space:]]*volumes:[[:space:]]*\n//
+      }
+    }' "$COMPOSE_FILE"
+    if ! docker_compose config >/dev/null || ! docker_compose up -d --force-recreate guacd; then
+      cp "$compose_backup" "$COMPOSE_FILE"
+      rm -f "$compose_backup"
+      docker_compose up -d --force-recreate guacd >/dev/null 2>&1 || true
+      say "${red}ERROR:${reset} RDP drive sharing could not be disabled; the previous configuration was restored."
+      return 1
+    fi
+    rm -f "$compose_backup"
+    say "${green}SUCCESS:${reset} RDP drive sharing disabled."
+    say
+    say "${yellow}IMPORTANT:${reset} Avagato did not delete the host directory or anything stored in it."
+    say "The path still exists at:"
+    say "  $AVAGATO_DIR/data/drive"
+    say "Inspect that directory before manually removing any files or the directory itself."
+    return 0
+  fi
+
+  say "RDP drive sharing is currently disabled."
+  say "Enabling it exposes $AVAGATO_DIR/data/drive to guacd as /drive."
+  confirm "Enable RDP drive sharing?" || return 0
+  install -d -m 755 "$AVAGATO_DIR/data/drive"
+  compose_backup="$(mktemp)"
+  cp "$COMPOSE_FILE" "$compose_backup"
+  sed -i '/^[[:space:]]*org\.avagato\.component: "guacd"$/a\    volumes:\n      - ./data/drive:/drive' "$COMPOSE_FILE"
+  if ! docker_compose config >/dev/null || ! docker_compose up -d --force-recreate guacd; then
+    cp "$compose_backup" "$COMPOSE_FILE"
+    rm -f "$compose_backup"
+    docker_compose up -d --force-recreate guacd >/dev/null 2>&1 || true
+    say "${red}ERROR:${reset} RDP drive sharing could not be enabled; the previous configuration was restored."
+    return 1
+  fi
+  rm -f "$compose_backup"
+  say "${green}SUCCESS:${reset} RDP drive sharing enabled."
+  say "Host path:  $AVAGATO_DIR/data/drive"
+  say "guacd path: /drive"
+}
 
 install_docker_theme(){
   require_commands curl jar mktemp install unzip
@@ -409,7 +471,8 @@ docker_menu(){
     say "  3. Install / switch / update Avagato Theme"
     say "  4. Remove Avagato Theme"
     say "  5. Change HTTP port"
-    say "  6. Start / reconcile deployment"
+    say "  6. Configure RDP drive sharing"
+    say "  7. Start / reconcile deployment"
     say
     say "  Q. Quit"
     say
@@ -420,7 +483,8 @@ docker_menu(){
       3) install_docker_theme; pause;;
       4) remove_docker_theme; pause;;
       5) change_http_port; pause;;
-      6) docker_compose up -d; say "${green}SUCCESS:${reset} Deployment reconciled."; pause;;
+      6) configure_rdp_drive; pause;;
+      7) docker_compose up -d; say "${green}SUCCESS:${reset} Deployment reconciled."; pause;;
       q|Q) return 0;;
       *) say "Invalid selection."; sleep 1;;
     esac
