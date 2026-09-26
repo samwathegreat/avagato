@@ -261,6 +261,7 @@ install_docker_theme(){
   esac
   say "Available version: $(theme_variant_version "$variant")"
   confirm "Install / switch to Avagato $label?" || return 0
+  warn_other_visual_extensions "$AVAGATO_DIR/guacamole-home/extensions" || { say "Theme installation cancelled."; return 0; }
   [[ ! -f "$target" ]] || theme_jar_is_ours "$target" || die "$(basename "$target") is not an Avagato-managed theme. Refusing to overwrite it."
   [[ ! -f "$other" ]] || theme_jar_is_ours "$other" || die "$(basename "$other") is not an Avagato-managed theme. Refusing to remove it."
   local tmp
