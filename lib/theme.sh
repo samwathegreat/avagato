@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared Avagato Guacamole theme builder.
+# Shared Avagato Guacamole theme management and build helpers.
 
 AVAGATO_THEME_VERSION="1.0.0"
 AVAGATO_LIGHT_THEME_VERSION="1.0.0"
