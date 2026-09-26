@@ -179,7 +179,7 @@ remove_docker_theme(){
 }
 
 docker_install(){
-  require_commands docker openssl sed awk grep install
+  require_commands docker openssl sed awk grep install curl
   [[ "$AVAGATO_DOCKER_STACK" == 0 ]] || { docker_menu; return; }
   say "${bold}Avagato Docker installation${reset}"
   say "Apache Guacamole ${GUAC_VERSION} + guacd ${GUAC_VERSION} + PostgreSQL ${POSTGRES_MAJOR}"
@@ -206,6 +206,18 @@ docker_install(){
   rm -f "$theme_tmp"
   docker_compose config >/dev/null || die "Generated Compose configuration failed validation."
   docker_compose up -d
+
+  say "Waiting for Guacamole to become reachable..."
+  local tries=0
+  until curl -fsS --max-time 3 "http://127.0.0.1:$GUACAMOLE_HTTP_PORT/" >/dev/null 2>&1; do
+    tries=$((tries + 1))
+    if (( tries >= 30 )); then
+      say "${yellow}WARNING:${reset} Containers were started, but Guacamole did not answer HTTP within about 60 seconds."
+      say "Run Avagato again and inspect Docker status before continuing account setup."
+      return 1
+    fi
+    sleep 2
+  done
 
   say
   say "${green}SUCCESS:${reset} Avagato Docker deployment created with the Avagato Theme."
