@@ -139,14 +139,22 @@ generate_schema(){
 }
 
 docker_status(){
-  local port="unknown"
+  local port="unknown" theme_status="Not installed"
   [[ -f "$ENV_FILE" ]] && port="$(sed -n 's/^GUACAMOLE_HTTP_PORT=//p' "$ENV_FILE" | head -n1)"
+  if [[ -f "$DOCKER_THEME_JAR" ]]; then
+    load_module lib/theme.sh
+    if command -v unzip >/dev/null 2>&1 && theme_jar_is_ours "$DOCKER_THEME_JAR"; then
+      theme_status="Installed"
+    else
+      theme_status="Unknown JAR present"
+    fi
+  fi
   say "${bold}Current status${reset}"
   printf '  %-25s %s\n' 'Deployment' 'Avagato Docker'
   printf '  %-25s %s\n' 'Guacamole version' "$GUAC_VERSION"
   printf '  %-25s %s\n' 'HTTP port' "$port"
   printf '  %-25s %s\n' 'TOTP' "$(grep -Eq '^[[:space:]]+TOTP_ENABLED:[[:space:]]*"?true"?' "$COMPOSE_FILE" 2>/dev/null && echo Enabled || echo Disabled)"
-  printf '  %-25s %s\n' 'Avagato Theme' "$([[ -f "$AVAGATO_DIR/guacamole-home/extensions/guacamole-avagato-dark-theme.jar" ]] && echo Installed || echo 'Not installed')"
+  printf '  %-25s %s\n' 'Avagato Theme' "$theme_status"
   say
   docker_compose ps 2>/dev/null || true
 }
@@ -156,8 +164,18 @@ change_http_port(){
   old="$(sed -n 's/^GUACAMOLE_HTTP_PORT=//p' "$ENV_FILE" | head -n1)"
   AVAGATO_ALLOW_CURRENT_PORT="$old" prompt_http_port "$old"
   [[ "$GUACAMOLE_HTTP_PORT" == "$old" ]] && { say "HTTP port unchanged."; return 0; }
+  local env_backup
+  env_backup="$(mktemp)"
+  cp "$ENV_FILE" "$env_backup"
   write_env
-  docker_compose up -d guacamole
+  if ! docker_compose config >/dev/null || ! docker_compose up -d guacamole; then
+    cp "$env_backup" "$ENV_FILE"
+    rm -f "$env_backup"
+    docker_compose up -d guacamole >/dev/null 2>&1 || true
+    say "${red}ERROR:${reset} Port change failed. The previous Avagato configuration was restored."
+    return 1
+  fi
+  rm -f "$env_backup"
   say "${green}SUCCESS:${reset} Guacamole HTTP port changed from $old to $GUACAMOLE_HTTP_PORT."
 }
 
@@ -170,7 +188,12 @@ enable_totp(){
   say
   confirm "Enable TOTP now?" || return 0
   sed -i '/WEBAPP_CONTEXT: ROOT/a\      TOTP_ENABLED: "true"' "$COMPOSE_FILE"
-  docker_compose up -d guacamole
+  if ! docker_compose config >/dev/null || ! docker_compose up -d guacamole; then
+    sed -i '/^[[:space:]]*TOTP_ENABLED:/d' "$COMPOSE_FILE"
+    docker_compose up -d guacamole >/dev/null 2>&1 || true
+    say "${red}ERROR:${reset} TOTP could not be enabled; the previous configuration was restored."
+    return 1
+  fi
   say "${green}SUCCESS:${reset} TOTP enabled. Applicable users will enroll when they next log in."
 }
 
@@ -178,8 +201,18 @@ disable_totp(){
   grep -Eq '^[[:space:]]+TOTP_ENABLED:' "$COMPOSE_FILE" || { say "TOTP is already disabled."; return 0; }
   say "${yellow}Disabling TOTP does not erase existing users' TOTP enrollment data.${reset}"
   confirm "Disable TOTP?" || return 0
+  local compose_backup
+  compose_backup="$(mktemp)"
+  cp "$COMPOSE_FILE" "$compose_backup"
   sed -i '/^[[:space:]]*TOTP_ENABLED:/d' "$COMPOSE_FILE"
-  docker_compose up -d guacamole
+  if ! docker_compose config >/dev/null || ! docker_compose up -d guacamole; then
+    cp "$compose_backup" "$COMPOSE_FILE"
+    rm -f "$compose_backup"
+    docker_compose up -d guacamole >/dev/null 2>&1 || true
+    say "${red}ERROR:${reset} TOTP could not be disabled; the previous configuration was restored."
+    return 1
+  fi
+  rm -f "$compose_backup"
   say "${green}SUCCESS:${reset} TOTP disabled. Existing enrollment data was left untouched."
 }
 
