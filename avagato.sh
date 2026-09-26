@@ -37,9 +37,10 @@ fi
 detect_environment
 
 if [[ "$AVAGATO_NATIVE" == 1 ]]; then
-  if [[ "$AVAGATO_DOCKER_STACK" == 1 ]]; then
-    say "${yellow}Both a supported native Guacamole installation and an Avagato Docker stack were detected.${reset}"
+  if [[ "$AVAGATO_GUAC_DOCKER" == 1 ]]; then
+    say "${yellow}Both a supported native Guacamole installation and a Docker Guacamole deployment were detected.${reset}"
     say "Avagato will not modify either installation automatically in this ambiguous state."
+    say "Docker itself is not a conflict; the conflict is the additional Guacamole web application detected in Docker."
     exit 1
   fi
   if [[ "$AVAGATO_DOCKER" == 1 ]]; then
@@ -60,6 +61,12 @@ if [[ "$AVAGATO_DOCKER_STACK" == 1 ]]; then
   say "Existing Avagato Docker deployment detected."
   say "Docker management will be enabled after the Docker module is added."
   exit 0
+fi
+
+if [[ "$AVAGATO_GUAC_DOCKER" == 1 ]]; then
+  say "${yellow}An existing Docker-based Apache Guacamole deployment was detected, but it is not identified as Avagato-managed.${reset}"
+  say "Avagato will not modify or replace an existing Docker Guacamole deployment it does not manage."
+  exit 1
 fi
 
 if [[ "$AVAGATO_DOCKER" == 1 && "$AVAGATO_COMPOSE" == 1 ]]; then
