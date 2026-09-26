@@ -57,7 +57,10 @@ prompt_rdp_drive(){
   AVAGATO_RDP_DRIVE=0
   say
   say "Optional RDP drive sharing exposes /opt/avagato/data/drive to guacd as /drive."
-  confirm "Enable RDP drive sharing?" && AVAGATO_RDP_DRIVE=1
+  if confirm "Enable RDP drive sharing?"; then
+    AVAGATO_RDP_DRIVE=1
+  fi
+  return 0
 }
 
 write_compose(){
