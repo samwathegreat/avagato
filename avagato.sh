@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-AVAGATO_VERSION="1.2.0"
+AVAGATO_VERSION="1.2.1"
 GUAC_VERSION="1.6.0"
 TOMCAT="/opt/apache-guacamole/tomcat9"
 GUAC_HOME="/etc/guacamole"
@@ -253,9 +253,9 @@ html,body,#content,.login-ui{background:#121416!important;color:#e5e7e9!importan
 /* Avagato branding. Assets are served by Guacamole's extension resource handler. */
 .login-ui .login-dialog .logo{
     width:18em!important;
-    height:18em!important;
+    height:15em!important;
     max-width:100%!important;
-    margin:0 auto .5em!important;
+    margin:-1.5em auto -1em!important;
     background-image:url('app/ext/avagato-dark-theme/resources/images/avagato-login.png')!important;
     background-position:center!important;
     background-repeat:no-repeat!important;
