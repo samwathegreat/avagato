@@ -345,7 +345,8 @@ docker_install(){
   say "  Initial password: guacadmin"
   say
   say "  1. Sign in with the initial Guacamole bootstrap account above."
-  say "  2. Recommended: create a separate administrator account with full administrative permissions."
+  say "  2. Recommended: create a separate administrator account."
+  say "     Under Permissions, enable all permission checkboxes for this administrator."
   say "  3. Log out of guacadmin and sign in as the new administrator."
   say "  4. Verify that the new account can administer Guacamole (including managing users)."
   say "  5. Only while signed in as that verified administrator, disable login for guacadmin."
