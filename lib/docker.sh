@@ -179,10 +179,10 @@ change_http_port(){
   env_backup="$(mktemp)"
   cp "$ENV_FILE" "$env_backup"
   write_env
-  if ! docker_compose config >/dev/null || ! docker_compose up -d guacamole; then
+  if ! docker_compose config >/dev/null || ! docker_compose up -d --force-recreate guacamole; then
     cp "$env_backup" "$ENV_FILE"
     rm -f "$env_backup"
-    docker_compose up -d guacamole >/dev/null 2>&1 || true
+    docker_compose up -d --force-recreate guacamole >/dev/null 2>&1 || true
     say "${red}ERROR:${reset} Port change failed. The previous Avagato configuration was restored."
     return 1
   fi
@@ -194,14 +194,15 @@ enable_totp(){
   grep -Eq '^[[:space:]]+TOTP_ENABLED:' "$COMPOSE_FILE" && { say "TOTP is already enabled."; return 0; }
   say "${bold}Enable TOTP authentication${reset}"
   say "For a new deployment, first create and verify your intended administrator account."
-  say "Recommended: disable the built-in guacadmin login from that verified administrator account."
+  say "Recommended: log in as that verified administrator before disabling the built-in guacadmin login."
+  say "WARNING: guacadmin can disable its own login; doing that before verifying another administrator can lock you out."
   say "If you intentionally keep guacadmin, change its default password before enabling TOTP."
   say
   confirm "Enable TOTP now?" || return 0
   sed -i '/WEBAPP_CONTEXT: ROOT/a\      TOTP_ENABLED: "true"' "$COMPOSE_FILE"
-  if ! docker_compose config >/dev/null || ! docker_compose up -d guacamole; then
+  if ! docker_compose config >/dev/null || ! docker_compose up -d --force-recreate guacamole; then
     sed -i '/^[[:space:]]*TOTP_ENABLED:/d' "$COMPOSE_FILE"
-    docker_compose up -d guacamole >/dev/null 2>&1 || true
+    docker_compose up -d --force-recreate guacamole >/dev/null 2>&1 || true
     say "${red}ERROR:${reset} TOTP could not be enabled; the previous configuration was restored."
     return 1
   fi
@@ -216,10 +217,10 @@ disable_totp(){
   compose_backup="$(mktemp)"
   cp "$COMPOSE_FILE" "$compose_backup"
   sed -i '/^[[:space:]]*TOTP_ENABLED:/d' "$COMPOSE_FILE"
-  if ! docker_compose config >/dev/null || ! docker_compose up -d guacamole; then
+  if ! docker_compose config >/dev/null || ! docker_compose up -d --force-recreate guacamole; then
     cp "$compose_backup" "$COMPOSE_FILE"
     rm -f "$compose_backup"
-    docker_compose up -d guacamole >/dev/null 2>&1 || true
+    docker_compose up -d --force-recreate guacamole >/dev/null 2>&1 || true
     say "${red}ERROR:${reset} TOTP could not be disabled; the previous configuration was restored."
     return 1
   fi
@@ -345,10 +346,13 @@ docker_install(){
   say
   say "  1. Sign in with the initial Guacamole bootstrap account above."
   say "  2. Recommended: create a separate administrator account with full administrative permissions."
-  say "  3. Log out and verify that the new administrator account can administer Guacamole."
-  say "  4. From that verified account, disable login for guacadmin."
-  say "     Alternatively, if you intend to keep guacadmin, change its default password immediately."
-  say "  5. Run Avagato again when you are ready to optionally enable TOTP."
+  say "  3. Log out of guacadmin and sign in as the new administrator."
+  say "  4. Verify that the new account can administer Guacamole (including managing users)."
+  say "  5. Only while signed in as that verified administrator, disable login for guacadmin."
+  say "     WARNING: Guacamole allows guacadmin to disable its own login. Doing so before"
+  say "     verifying another administrator can lock you out of the installation."
+  say "     Alternatively, if you intentionally keep guacadmin, change its default password immediately."
+  say "  6. Run Avagato again when you are ready to optionally enable TOTP."
 }
 
 docker_menu(){
