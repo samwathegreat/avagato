@@ -65,6 +65,12 @@ The dark login screen follows the same styling:
 
 ## Quick Start
 
+For the interactive launcher, Avagato follows the same `bash -c "$(curl ...)"` model used by Proxmox VE Community Scripts so standard input remains attached to the terminal:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/samwathegreat/avagato/main/avagato.sh)"
+```
+
 Create a **Proxmox backup or snapshot** of the Guacamole container first. Then, from the Guacamole container as root, download Avagato directly from GitHub and run it:
 
 ```bash
