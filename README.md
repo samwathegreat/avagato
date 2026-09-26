@@ -234,10 +234,42 @@ GID 1000
 
 If `/opt/avagato/data/drive` is backed by a Proxmox host bind mount, you are responsible for making sure the resulting storage is writable by `1000:1000` as seen from inside the Docker LXC. Depending on your Proxmox/LXC configuration, UID/GID mapping may also need to be considered. Avagato does not automatically change ownership or permissions of an existing directory or external mount.
 
-> [!NOTE]
-> **If you are not using an external Proxmox bind mount, you do not need to perform this permissions setup.** This is only an advanced consideration when supplying storage from outside the Docker LXC.
+The important permission boundary is the directory that becomes `/drive` inside `guacd`, plus any directories beneath it that Guacamole needs to use. A typical working layout as seen **inside the Docker LXC** is:
 
-Make sure an external mount is available and has appropriate permissions before relying on it for Guacamole file storage.
+```text
+/opt/avagato/data/drive           1000:1000  0755
+/opt/avagato/data/drive/Download  1000:1000  0700
+```
+
+The top-level drive directory must be traversable and writable by UID/GID 1000 if Guacamole needs to create files or folders directly there. A private child directory such as `Download` may use `0700` as long as it is owned by `1000:1000`. Other permission schemes can also work if they genuinely grant the `guacd` process equivalent access, but `1000:1000` ownership is the straightforward Avagato configuration.
+
+To inspect an existing directory from inside the Docker LXC:
+
+```bash
+ls -ldn /opt/avagato/data/drive /opt/avagato/data/drive/Download 2>/dev/null
+```
+
+For ordinary storage whose ownership is safe for Avagato to control, the following example corrects the drive and `Download` directory:
+
+```bash
+chown 1000:1000 /opt/avagato/data/drive
+chmod 755 /opt/avagato/data/drive
+chown -R 1000:1000 /opt/avagato/data/drive/Download
+chmod 700 /opt/avagato/data/drive/Download
+```
+
+Do **not** blindly run a recursive `chown` against externally managed storage unless you understand the ownership requirements of that storage. With an unprivileged Proxmox LXC, host-side numeric ownership may differ because of UID/GID mapping; the requirement is that the directory is accessible to UID/GID `1000:1000` **as seen inside the Docker LXC**.
+
+You can verify the live `guacd` view after the stack is running:
+
+```bash
+docker exec avagato-guacd sh -c 'id; ls -ldn /drive /drive/Download 2>/dev/null'
+```
+
+> [!NOTE]
+> **If you are not using an external Proxmox bind mount, you normally do not need to perform this permissions setup.** Avagato creates a new local drive directory as `1000:1000`. These instructions are primarily for existing directories and storage supplied from outside the Docker LXC.
+
+When RDP drive sharing is enabled and Avagato finds an existing drive directory that does not appear writable by `guacd`, it warns instead of changing ownership automatically. Correct the storage permissions before relying on it for Guacamole file transfers.
 
 Avagato preserves unrelated existing `guacd` volume mappings when enabling or disabling its own RDP drive mapping. It validates the candidate Compose configuration before replacing the live file and refuses ambiguous configurations instead of guessing.
 
