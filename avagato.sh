@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-AVAGATO_VERSION="1.0.0"
+AVAGATO_VERSION="1.1.0"
 GUAC_VERSION="1.6.0"
 TOMCAT="/opt/apache-guacamole/tomcat9"
 GUAC_HOME="/etc/guacamole"
@@ -58,7 +58,7 @@ status(){
   printf '  %-31s %s\n' 'Tomcat root redirect' "$root"
   printf '  %-31s %s\n' 'Tomcat stock applications' "$stock"
   printf '  %-31s %s\n' 'TOTP extension' "$totp"
-  printf '  %-31s %s\n' 'Avagato Dark Theme' "$theme"
+  printf '  %-31s %s\n' 'Avagato Theme' "$theme"
   printf '  %-31s %s\n' 'Guacamole detected' "$INSTALLED_GUAC_VERSION"
   printf '  %-31s %s\n' 'Guacamole supported' "$GUAC_VERSION"
 }
@@ -68,6 +68,10 @@ install_tomcat_cleanup(){
   say "${bold}Tomcat cleanup and root redirect${reset}"
   say "This preserves the original Tomcat ROOT application and moves docs, examples, manager, and"
   say "host-manager outside webapps. / will redirect to Guacamole; Guacamole remains at /guacamole/."
+  say
+  say "${green}${bold}RECOMMENDED FOR THIS NATIVE INSTALLATION${reset}"
+  say "These stock Tomcat applications are not required by Guacamole. Disabling the unused applications"
+  say "reduces exposed endpoints, and Avagato preserves them so they can be restored later."
   say
   backup_warning
   confirm "Continue?" || return 0
@@ -176,7 +180,7 @@ theme_jar_is_ours(){
   [[ -f "$jar_path" ]] || return 1
   manifest="$(unzip -p "$jar_path" guac-manifest.json 2>/dev/null || true)"
   [[ "$manifest" == *'"guacamoleVersion":"1.6.0"'* ]] &&
-  [[ "$manifest" == *'"name":"Avagato Dark Theme"'* ]] &&
+  { [[ "$manifest" == *'"name":"Avagato Theme"'* ]] || [[ "$manifest" == *'"name":"Avagato Dark Theme"'* ]]; } &&
   { [[ "$manifest" == *'"namespace":"avagato-dark-theme"'* ]] || [[ "$manifest" == *'"namespace":"dark-theme"'* ]]; }
 }
 
@@ -185,10 +189,10 @@ build_theme()(
   work="$(mktemp -d)"
   trap 'rm -rf "${work:-}"' EXIT
   cat > "$work/guac-manifest.json" <<'JSON'
-{"guacamoleVersion":"1.6.0","name":"Avagato Dark Theme","namespace":"avagato-dark-theme","css":["dark.css"]}
+{"guacamoleVersion":"1.6.0","name":"Avagato Theme","namespace":"avagato-dark-theme","css":["dark.css"]}
 JSON
   cat > "$work/dark.css" <<'CSS'
-/* Avagato Dark Theme - Apache Guacamole 1.6.0 */
+/* Avagato Theme - Apache Guacamole 1.6.0 */
 html,body,#content,.login-ui{background:#121416!important;color:#e5e7e9!important}.login-ui .login-dialog,.menu,.menu-content,.menu-body,.settings,.notification,.modal{background:#1c1f22!important;color:#e5e7e9!important}.header,.menu-content .header,.transfer-manager .header,#filesystem-menu .header{background:#24282c!important;color:#f1f3f4!important}h1,h2,h3,h4,h5,label,.caption,.field-header,.name,.description,p,span{color:inherit}a{color:#75baff}a:hover{color:#a8d4ff}input,select,textarea{background:#292d31!important;color:#f1f3f4!important;border-color:#4a5056!important}input:focus,select:focus,textarea:focus{background:#30353a!important;border-color:#6b9fc8!important}input:disabled,input[disabled],input[readonly],select:disabled,select[disabled],textarea:disabled,textarea[disabled]{background:#24282c!important;color:#9ca3af!important;border-color:#454b50!important;opacity:1!important}button,.button,input[type=submit]{background:#343a40!important;color:#f1f3f4!important;border-color:#555d64!important}button:hover,.button:hover,input[type=submit]:hover{background:#41484f!important}table,tbody,tr,td,th{color:#e5e7e9}.list-item{color:#e5e7e9!important}.list-item:hover{background:#292e32!important}.page-tabs,.page-tabs .page-list{background:#1c1f22!important;color:#e5e7e9!important}.page-tabs .page-list li a{color:#cfd3d6!important}.page-tabs .page-list li a:hover,.page-tabs .page-list li a.current{color:#fff!important;background:#292e32!important}.menu-section h3{color:#aeb5ba!important}.menu-dropdown,.menu-contents{background:#1c1f22!important;color:#e5e7e9!important}.user-menu .menu-contents,.user-menu .menu-contents li,.user-menu .menu-contents li a,.user-menu .menu-contents li a:visited,.user-menu .menu-contents li a:hover{color:#e5e7e9!important}.user-menu .menu-contents li a:hover{background:#30353a!important}.user-list .list-item,.user-list .list-item a,.user-list .list-item .name,.user-list .list-item .caption,.user-list .user a,.user-list .user a:visited,.user-list .username,.user-list .username a,.user-list td a,.user-list td a:visited{color:#e5e7e9!important}.logged-out-modal guac-modal,.automatic-login-rejected-modal guac-modal{background:#121416!important;color:#e5e7e9!important}.logged-out-modal .notification,.automatic-login-rejected-modal .notification{background:#1c1f22!important;color:#e5e7e9!important}.filter input,.search-field input,input[placeholder="Filter"]{background:#121416!important;color:#e5e7e9!important;border:1px solid #9ca3af!important;border-radius:4px!important}.filter input::placeholder,.search-field input::placeholder,input[placeholder="Filter"]::placeholder{color:#b8bec4!important;opacity:1!important}.filter input:focus,.search-field input:focus,input[placeholder="Filter"]:focus{background:#121416!important;color:#fff!important;border-color:#b9d7eb!important;outline:none!important}.location-chooser div.location{background:#292d31!important;color:#f1f3f4!important;border-color:#4a5056!important;cursor:pointer!important}.location-chooser div.location:hover{background:#30353a!important;border-color:#6b9fc8!important}.location-chooser .dropdown{background:#1c1f22!important;color:#e5e7e9!important;border-color:#4a5056!important}.location-chooser .dropdown .list-item,.location-chooser .dropdown .list-item .name,.location-chooser .dropdown .connection-group,.location-chooser .dropdown .connection-group .name{color:#e5e7e9!important}.location-chooser .dropdown .list-item:hover,.location-chooser .dropdown .list-item:not(.selected) .caption:hover{background:#30353a!important}.location-chooser .dropdown .list-item.selected{background:#343a40!important;color:#fff!important}.settings .connection .name,.settings .connection a,.settings .connection a:visited,.all-connections .connection a,.all-connections .connection a:visited,.all-connections .connection a:hover,.all-connections .connection .name,.recent-connections .connection a,.recent-connections .connection a:visited,.recent-connections .connection a:hover,.recent-connections .connection .name,.recent-connections .connection .caption{color:#e5e7e9!important}.recent-connections .connection:hover,.all-connections .list-item:not(.selected) .caption:hover{background:#30353a!important;color:#fff!important}.recent-connections .connection:hover a,.recent-connections .connection:hover .name,.recent-connections .connection:hover .caption,.all-connections .list-item:not(.selected) .caption:hover,.all-connections .list-item:not(.selected) .caption:hover .name,.all-connections .list-item:not(.selected) .caption:hover a{color:#fff!important}.settings .connection:hover,.settings .list-item:not(.selected) .caption:hover{background:#30353a!important;color:#fff!important}.settings .connection:hover a,.settings .connection:hover .name,.settings .connection:hover .caption,.settings .list-item:not(.selected) .caption:hover,.settings .list-item:not(.selected) .caption:hover .name,.settings .list-item:not(.selected) .caption:hover a{color:#fff!important}.login-ui .login-fields .labeled-field .field-header{color:#b8bec4!important;opacity:1!important}.login-ui .login-fields .labeled-field.empty input{background:transparent!important}.login-ui .login-fields .labeled-field input:focus{background:#30353a!important}.client,.client .display,.viewport{color:initial}hr{border-color:#3b4146!important}
 CSS
   (cd "$work" && jar cf "$out" guac-manifest.json dark.css)
@@ -196,9 +200,9 @@ CSS
 
 install_theme(){
   require_commands jar mktemp install
-  say "${bold}Install Avagato Dark Theme${reset}"
+  say "${bold}Install Avagato Theme${reset}"
   backup_warning
-  confirm "Install the Avagato dark theme?" || return 0
+  confirm "Install the Avagato theme?" || return 0
   if [[ -f "$THEME_JAR" ]] && ! theme_jar_is_ours "$THEME_JAR"; then
     die "$(basename "$THEME_JAR") exists but does not appear to be an Avagato theme. Refusing to overwrite it."
   fi
@@ -213,21 +217,21 @@ install_theme(){
   [[ -f "$LEGACY_THEME_JAR" ]] && rm -f "$LEGACY_THEME_JAR"
   trap - RETURN; rm -f "$tmp"
   restart_tomcat
-  say "${green}SUCCESS:${reset} Avagato Dark Theme installed as $(basename "$THEME_JAR")."
+  say "${green}SUCCESS:${reset} Avagato Theme installed as $(basename "$THEME_JAR")."
 }
 
 remove_theme(){
-  [[ -f "$THEME_JAR" || -f "$LEGACY_THEME_JAR" ]] || { say "Avagato Dark Theme is not installed."; return 0; }
+  [[ -f "$THEME_JAR" || -f "$LEGACY_THEME_JAR" ]] || { say "Avagato Theme is not installed."; return 0; }
   if [[ -f "$THEME_JAR" ]] && ! theme_jar_is_ours "$THEME_JAR"; then
     die "$(basename "$THEME_JAR") does not appear to be an Avagato theme. Refusing to remove it."
   fi
   if [[ -f "$LEGACY_THEME_JAR" ]] && ! theme_jar_is_ours "$LEGACY_THEME_JAR"; then
     die "$(basename "$LEGACY_THEME_JAR") does not appear to be the Avagato development theme. Refusing to remove it."
   fi
-  confirm "Remove the Avagato Dark Theme?" || return 0
+  confirm "Remove the Avagato Theme?" || return 0
   rm -f "$THEME_JAR" "$LEGACY_THEME_JAR"
   restart_tomcat
-  say "${green}SUCCESS:${reset} Avagato Dark Theme removed."
+  say "${green}SUCCESS:${reset} Avagato Theme removed."
 }
 
 install_all(){ install_tomcat_cleanup; install_totp; install_theme; }
@@ -269,21 +273,33 @@ restore_all(){
 menu(){
   while true; do
     clear || true
-    say "${bold}AVAGATO${reset} — Guacamole Post-Install Helper ${AVAGATO_VERSION}"
-    say "Tested target: Apache Guacamole ${GUAC_VERSION} / Proxmox VE Community Scripts layout"
+    say "${green}${bold}                 .-''''-.${reset}"
+    say "${green}${bold}               .'  .--.  '.${reset}"
+    say "${green}${bold}              /   (o  o)   \\${reset}"
+    say "${green}${bold}             |      /\\      |${reset}"
+    say "${green}${bold}              \\    '  '    /${reset}"
+    say "${green}${bold}               '.  ----  .'${reset}"
+    say "${green}${bold}                 '-.__.-'${reset}"
+    say
+    say "${bold}                    AVAGATO${reset}"
+    say "             A little extra seasoning"
+    say "                for Apache Guacamole"
+    say
+    say "Avagato ${AVAGATO_VERSION}  •  Apache Guacamole ${INSTALLED_GUAC_VERSION}"
+    say "Native installation  •  Proxmox VE Community Scripts layout"
     say
     status
     say
     say "${bold}Install / Configure${reset}"
-    say "  1. Clean up Tomcat & redirect / → /guacamole/"
+    say "  1. Clean up Tomcat & redirect / → /guacamole/  (recommended)"
     say "  2. Install TOTP authentication"
-    say "  3. Install Avagato Dark Theme"
+    say "  3. Install Avagato Theme"
     say "  4. Apply all enhancements"
     say
     say "${bold}Restore${reset}"
     say "  5. Restore stock Tomcat web applications/root"
     say "  6. Remove TOTP extension"
-    say "  7. Remove Avagato Dark Theme"
+    say "  7. Remove Avagato Theme"
     say "  8. Restore everything managed by Avagato"
     say
     say "  Q. Quit"
