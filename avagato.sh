@@ -10,7 +10,8 @@ cleanup(){ [[ -n "${TMP_DIR:-}" ]] && rm -rf "$TMP_DIR"; }
 trap cleanup EXIT
 
 load_module(){
-  local rel="$1" local_path="$SELF_DIR/$rel"
+  local rel="$1"
+  local local_path="$SELF_DIR/$rel"
   if [[ -f "$local_path" ]]; then
     # shellcheck source=/dev/null
     source "$local_path"
